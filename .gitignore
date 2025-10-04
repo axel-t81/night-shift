@@ -32,6 +32,10 @@ dist/
 *.swo
 *~
 
+# Conext Engineering
+.contexteng/
+
+
 # IDE / Editor - Others
 .idea/
 .DS_Store
