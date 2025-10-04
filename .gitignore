@@ -1,0 +1,66 @@
+# Virtual Environment
+.night/
+.venv/
+venv/
+env/
+ENV/
+.virtualenv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Environment variables
+.env
+.env.local
+
+# IDE / Editor - Cursor & VSCode
+.vscode/
+.cursor/
+*.code-workspace
+.cursorrules
+*.swp
+*.swo
+*~
+
+# IDE / Editor - Others
+.idea/
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Cloud Run / GCP (if you have local config files)
+.gcloud/
+gcp-key.json
+*-key.json
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Temporary files
+*.tmp
+*.bak
+.cache/
