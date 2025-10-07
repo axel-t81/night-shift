@@ -14,7 +14,7 @@ A personal productivity web app for tracking night shift pomodoro blocks and tas
 ```
 app/
 ├── models/          # SQLAlchemy ORM models (✓ implemented)
-├── schemas/         # Pydantic validation schemas
+├── schemas/         # Pydantic validation schemas (✓ implemented)
 ├── services/        # Business logic layer
 └── api/             # FastAPI routes
 
@@ -61,7 +61,7 @@ This creates a SQLite database (`night_shift.db`) with the following tables:
 ## Development Status
 
 - [x] Models Layer - Database schema with SQLAlchemy
-- [ ] Schemas Layer - Pydantic validation
+- [x] Schemas Layer - Pydantic validation
 - [ ] Services Layer - Business logic (recurring tasks)
 - [ ] API Layer - RESTful endpoints
 - [ ] Frontend - Bloomberg Terminal-styled UI
