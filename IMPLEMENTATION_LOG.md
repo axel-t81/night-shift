@@ -199,7 +199,7 @@ def create_category(category: CategoryCreate, db: Session = Depends(get_db)):
 
 ### Next Steps
 
-- [ ] Implement Services Layer (business logic for recurring tasks)
+- [x] Implement Services Layer (business logic for recurring tasks)
 - [ ] Implement API Layer (FastAPI endpoints with these schemas)
 - [ ] Implement Frontend (HTML/CSS/JS with Bloomberg Terminal styling)
 
@@ -209,4 +209,256 @@ def create_category(category: CategoryCreate, db: Session = Depends(get_db)):
 - Color validation uses regex to ensure valid hex codes
 - Time validation prevents logical errors (negative durations)
 - Extensive inline comments for educational purposes
+
+---
+
+## Phase 3: Services Layer ✓
+
+**Date**: October 8, 2025
+**Status**: Complete
+
+### What Was Implemented
+
+The Services Layer implements all business logic for the Night Shift MVP app, with special support for **recurring blocks**. Services act as an intermediary between API routes and database models, providing clean separation of concerns.
+
+### Files Created/Modified
+
+1. **`app/services/category_service.py`** - Category/project management
+   - Full CRUD operations (create, read, update, delete)
+   - `get_category_stats()` - Task completion statistics per category
+   - `get_categories_with_task_counts()` - List categories with task counts
+   - Handles cascade constraints (can't delete category with tasks)
+
+2. **`app/services/task_service.py`** - Task management within blocks
+   - Full CRUD operations with validation
+   - `get_tasks_by_block()` - Get all tasks in a specific block
+   - `get_tasks_by_category()` - Get all tasks in a category
+   - `complete_task()` / `uncomplete_task()` - Toggle completion status
+   - `reorder_tasks()` - Update positions for drag-and-drop UI
+   - `get_block_progress()` - Get completion statistics for a block
+   - `bulk_complete_tasks()` / `bulk_uncomplete_tasks()` - Bulk operations
+
+3. **`app/services/block_service.py`** - Block management with recurring support
+   - Full CRUD operations
+   - **`complete_and_reset_block()`** - **KEY FUNCTION** for recurring blocks
+   - `reset_block_tasks()` - Reset all tasks to incomplete
+   - `move_block_to_end()` - Move block to end of queue
+   - `clone_block()` - Create copy of block with all tasks
+   - `reorder_blocks()` - Update block ordering
+   - `get_active_blocks()` - Get blocks with incomplete tasks
+   - `get_next_block()` - Get next block in queue
+   - `get_block_statistics()` - Overall block statistics
+
+4. **`app/services/__init__.py`** - Package initialization
+   - Exports all services for easy importing
+   - Comprehensive documentation
+
+5. **`SERVICES_LAYER_GUIDE.md`** - Comprehensive documentation
+   - Detailed guide for all services
+   - Recurring blocks workflow explanation
+   - Integration examples for API layer
+   - Best practices and testing examples
+
+### Key Design Decisions
+
+#### 1. Recurring Blocks Architecture
+
+**Requirement**: Blocks should be recurring (not tasks). When a block is completed, it should be repopulated and placed at the back of the queue.
+
+**Solution**: Use existing data model without changes:
+- `Block.block_number` controls queue ordering (lower = earlier)
+- `complete_and_reset_block()` function:
+  1. Marks all incomplete tasks as complete (records completion)
+  2. Immediately resets all tasks to incomplete
+  3. Moves block to end by giving it highest block_number + 1
+
+**Example Workflow**:
+```
+Block #1: Morning Routine [complete] → Reset → Block #10: Morning Routine
+Block #2: Deep Work [now active]
+Block #3: Learning Block
+```
+
+#### 2. No Model Changes Needed ✅
+
+The existing models fully support recurring blocks:
+- `Task.completed` can toggle between true/false
+- `Task.completed_at` records completion timestamp
+- `Block.block_number` enables queue management
+- All relationships work as-is
+
+#### 3. Service Layer Responsibilities
+
+Services handle:
+- Business logic (recurring blocks, completion tracking)
+- Validation (verify block/category exists before creating task)
+- Complex operations (bulk operations, statistics)
+- Database transactions (commit/rollback)
+
+API routes should:
+- Handle HTTP requests/responses
+- Call service functions
+- Return appropriate status codes
+- NOT directly access the database
+
+#### 4. Progress Tracking
+
+Multiple levels of progress tracking:
+- **Task level**: Individual completion status
+- **Block level**: Percentage of tasks complete
+- **Category level**: Completion rate across all tasks
+- **System level**: Overall statistics
+
+### MVP Support
+
+The services support all core MVP requirements:
+
+✅ **Recurring Blocks** - Complete, reset, and reorder blocks  
+✅ **Queue Management** - Blocks ordered by `block_number`  
+✅ **Task Tracking** - Full CRUD with position management  
+✅ **Progress Statistics** - Completion tracking at all levels  
+✅ **Bulk Operations** - Efficient multi-task operations  
+✅ **Block Cloning** - Create copies for true recurrence  
+
+### Usage Examples
+
+#### Create and Complete a Recurring Block
+
+```python
+from app.services import block_service, task_service
+from app.schemas import BlockCreate, TaskCreate
+
+# Create block
+block = block_service.create_block(db, BlockCreate(
+    start_time=datetime.now(),
+    end_time=datetime.now() + timedelta(hours=2),
+    title="Morning Routine",
+    block_number=1
+))
+
+# Add tasks
+task1 = task_service.create_task(db, TaskCreate(
+    block_id=block.id,
+    category_id="category-id",
+    title="Meditation",
+    estimated_minutes=20
+))
+
+task2 = task_service.create_task(db, TaskCreate(
+    block_id=block.id,
+    category_id="category-id",
+    title="Exercise",
+    estimated_minutes=30
+))
+
+# Complete all tasks and reset block
+result = block_service.complete_and_reset_block(db, block.id, move_to_end=True)
+# {
+#   "tasks_completed": 2,
+#   "tasks_reset": 2,
+#   "new_block_number": 10,
+#   "moved_to_end": True
+# }
+
+# Block is now ready to be done again!
+```
+
+#### Get Next Block in Queue
+
+```python
+next_block_info = block_service.get_next_block(db)
+# {
+#   "block": Block(...),
+#   "total_tasks": 3,
+#   "completed_tasks": 1,
+#   "completion_percentage": 33.33
+# }
+```
+
+#### Clone a Block
+
+```python
+# Create a recurring "template" block and clone it
+template_block = block_service.create_block(db, ...)
+# Add tasks to template...
+
+# Clone for tomorrow
+tomorrow = datetime.now() + timedelta(days=1)
+new_block = block_service.clone_block(
+    db,
+    template_block.id,
+    new_start_time=tomorrow,
+    copy_tasks=True  # Copy all tasks
+)
+```
+
+### How to Use
+
+Services are ready to be used in the API layer:
+
+```python
+# In your FastAPI routes:
+from app.services import block_service, task_service, category_service
+from app.database import get_db
+
+@router.post("/blocks/{block_id}/complete-and-reset")
+def complete_and_reset(block_id: str, db: Session = Depends(get_db)):
+    result = block_service.complete_and_reset_block(db, block_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Block not found")
+    return result
+
+@router.get("/blocks/next")
+def get_next(db: Session = Depends(get_db)):
+    return block_service.get_next_block(db)
+```
+
+### Testing the Services
+
+You can test services directly:
+
+```python
+# Example: Test in Python REPL or Jupyter notebook
+from app.database import SessionLocal
+from app.services import category_service
+from app.schemas import CategoryCreate
+
+db = SessionLocal()
+
+# Create category
+cat = category_service.create_category(db, CategoryCreate(
+    name="Test Category",
+    color="#FF5733"
+))
+
+# Get stats
+stats = category_service.get_category_stats(db, cat.id)
+print(stats)
+
+db.close()
+```
+
+### Architecture Benefits
+
+1. **Clean Separation**: API ↔ Services ↔ Models
+2. **Reusable**: Services can be used by API, CLI, scripts, tests
+3. **Testable**: Easy to unit test without HTTP layer
+4. **Maintainable**: Business logic in one place
+5. **Extensible**: Easy to add new functions
+
+### Next Steps
+
+- [x] Services Layer complete with recurring blocks
+- [ ] Implement API Layer (FastAPI routes using these services)
+- [ ] Implement Frontend (HTML/CSS/JS with Bloomberg Terminal styling)
+- [ ] Add comprehensive tests for all services
+- [ ] Add authentication/authorization if needed
+
+### Notes
+
+- **No database model changes required** - existing schema fully supports recurring blocks
+- All services include comprehensive docstrings and type hints
+- Services handle `None` returns for not-found scenarios
+- Transaction management handled within services (commit/rollback)
+- Extensive documentation in `SERVICES_LAYER_GUIDE.md`
 

@@ -58,11 +58,29 @@ This creates a SQLite database (`night_shift.db`) with the following tables:
 - Has completion status and timestamp
 - Position determines order within block
 
+## Services Layer
+
+The services layer provides business logic for recurring blocks:
+
+### Key Features
+- **Recurring Blocks**: Blocks can be completed and reset to repeat indefinitely
+- **Queue Management**: Blocks ordered by `block_number`, completed blocks move to end
+- **Progress Tracking**: Get completion statistics for blocks and categories
+- **Block Cloning**: Create copies of blocks with all their tasks
+
+### Core Functions
+- `complete_and_reset_block()` - Complete all tasks, reset them, move block to end
+- `reset_block_tasks()` - Reset all tasks in a block to incomplete
+- `move_block_to_end()` - Move a block to the back of the queue
+- `clone_block()` - Create a copy of a block with its tasks
+
+See [SERVICES_LAYER_GUIDE.md](./SERVICES_LAYER_GUIDE.md) for detailed documentation.
+
 ## Development Status
 
 - [x] Models Layer - Database schema with SQLAlchemy
 - [x] Schemas Layer - Pydantic validation
-- [ ] Services Layer - Business logic (recurring tasks)
+- [x] Services Layer - Business logic with recurring blocks support
 - [ ] API Layer - RESTful endpoints
 - [ ] Frontend - Bloomberg Terminal-styled UI
 
