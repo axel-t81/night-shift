@@ -282,7 +282,7 @@ def delete_task(
 @router.post("/{task_id}/complete", response_model=Task)
 def complete_task(
     task_id: str,
-    actual_minutes: Optional[int] = Body(None, description="Actual time spent on task (optional)"),
+    actual_minutes: Optional[int] = Body(None, embed=True, description="Actual time spent on task (optional)"),
     db: Session = Depends(get_db)
 ):
     """

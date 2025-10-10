@@ -20,7 +20,9 @@ const AppState = {
     categories: [],            // All categories
     statistics: {},            // Overall statistics
     blockProgress: null,       // Progress for selected block
-    isLoading: false           // Loading state
+    isLoading: false,          // Loading state
+    modalMode: 'add',          // Modal mode: 'add' or 'edit'
+    editingCategory: null      // Category being edited (when in edit mode)
 };
 
 // =============================================================================
@@ -72,6 +74,8 @@ function setupEventListeners() {
     
     // Add category button
     document.getElementById('btn-add-category').addEventListener('click', () => {
+        // Explicitly set to add mode before showing
+        AppState.modalMode = 'add';
         showAddCategoryModal();
     });
     
@@ -149,6 +153,28 @@ async function loadNextBlock() {
     } catch (error) {
         console.error('Error loading next block:', error);
         throw error;
+    }
+}
+
+/**
+ * Refresh just the next block's progress data (without selecting it)
+ * Used when tasks are toggled to update the priority block display
+ */
+async function refreshNextBlockProgress() {
+    try {
+        const response = await API.Block.getNext();
+        
+        if (response.message) {
+            // No blocks available
+            AppState.nextBlock = null;
+        } else {
+            AppState.nextBlock = response;
+        }
+        
+        renderNextBlock();
+    } catch (error) {
+        console.error('Error refreshing next block progress:', error);
+        // Don't throw - this is a non-critical UI update
     }
 }
 
@@ -235,7 +261,7 @@ function renderNextBlock() {
         return;
     }
     
-    const { block, total_tasks, completed_tasks, completion_percentage } = AppState.nextBlock;
+    const { block } = AppState.nextBlock;
     
     const html = `
         <div class="next-block-card" data-block-id="${block.id}">
@@ -258,10 +284,6 @@ function renderNextBlock() {
                     </div>
                 </div>
                 <div class="block-number-badge">#${block.block_number || '?'}</div>
-            </div>
-            
-            <div class="block-task-summary">
-                📋 ${completed_tasks} / ${total_tasks} tasks complete (${completion_percentage.toFixed(0)}%)
             </div>
         </div>
     `;
@@ -429,6 +451,10 @@ function renderCategories() {
             <div class="category-item">
                 <div class="category-color" style="background-color: ${color};"></div>
                 <div class="category-name">${escapeHtml(category.name)}</div>
+                <div class="category-actions">
+                    <button class="btn-icon-sm" onclick="handleEditCategory('${category.id}')" title="Edit category">✎</button>
+                    <button class="btn-icon-sm btn-danger" onclick="handleDeleteCategory('${category.id}')" title="Delete category">×</button>
+                </div>
                 <div class="category-count">${category.total_tasks || 0}</div>
             </div>
         `;
@@ -485,10 +511,11 @@ async function handleTaskToggle(taskId, checked) {
             showNotification('Task marked incomplete', 'info');
         }
         
-        // Reload selected block to update UI
-        if (AppState.selectedBlock) {
-            await selectBlock(AppState.selectedBlock.id);
-        }
+        // Reload selected block to update UI and refresh next block progress in parallel
+        await Promise.all([
+            AppState.selectedBlock ? selectBlock(AppState.selectedBlock.id) : Promise.resolve(),
+            refreshNextBlockProgress()
+        ]);
         
     } catch (error) {
         console.error('Error toggling task:', error);
@@ -560,7 +587,7 @@ async function handleResetTasks(blockId) {
 }
 
 /**
- * Handle add category form submission
+ * Handle add/edit category form submission
  */
 async function handleAddCategory() {
     const nameInput = document.getElementById('input-category-name');
@@ -575,8 +602,15 @@ async function handleAddCategory() {
     }
     
     try {
-        await API.Category.create({ name, color });
-        showNotification('Category created successfully', 'success');
+        if (AppState.modalMode === 'edit' && AppState.editingCategory) {
+            // Update existing category
+            await API.Category.update(AppState.editingCategory.id, { name, color });
+            showNotification('Category updated successfully', 'success');
+        } else {
+            // Create new category
+            await API.Category.create({ name, color });
+            showNotification('Category created successfully', 'success');
+        }
         
         // Reset form and close modal
         nameInput.value = '';
@@ -587,8 +621,76 @@ async function handleAddCategory() {
         await loadCategories();
         
     } catch (error) {
-        console.error('Error creating category:', error);
-        showNotification('Failed to create category: ' + error.message, 'error');
+        console.error('Error saving category:', error);
+        showNotification('Failed to save category: ' + error.message, 'error');
+    }
+}
+
+/**
+ * Handle edit category button click
+ * @param {string} categoryId - Category UUID
+ */
+async function handleEditCategory(categoryId) {
+    try {
+        // Find the category in our current list
+        const category = AppState.categories.find(c => c.id === categoryId);
+        
+        if (!category) {
+            showNotification('Category not found', 'error');
+            return;
+        }
+        
+        // Set modal to edit mode
+        AppState.modalMode = 'edit';
+        AppState.editingCategory = category;
+        
+        // Pre-fill the form
+        document.getElementById('input-category-name').value = category.name;
+        document.getElementById('input-category-color').value = category.color || '';
+        
+        // Update modal title and button
+        document.querySelector('.modal-title').textContent = 'Edit Category';
+        document.querySelector('#form-add-category button[type="submit"]').textContent = 'Update';
+        
+        // Show modal
+        showAddCategoryModal();
+        
+    } catch (error) {
+        console.error('Error loading category for edit:', error);
+        showNotification('Failed to load category', 'error');
+    }
+}
+
+/**
+ * Handle delete category button click
+ * @param {string} categoryId - Category UUID
+ */
+async function handleDeleteCategory(categoryId) {
+    // Find the category name for the confirmation message
+    const category = AppState.categories.find(c => c.id === categoryId);
+    const categoryName = category ? category.name : 'this category';
+    
+    if (!confirm(`Delete "${categoryName}"? This cannot be undone.\n\nNote: You cannot delete categories that have tasks. Remove or reassign tasks first.`)) {
+        return;
+    }
+    
+    try {
+        await API.Category.delete(categoryId);
+        showNotification('Category deleted successfully', 'success');
+        
+        // Reload categories
+        await loadCategories();
+        
+    } catch (error) {
+        console.error('Error deleting category:', error);
+        
+        // Check if it's a foreign key constraint error
+        if (error.message.includes('tasks still reference it') || 
+            error.message.includes('Cannot delete')) {
+            showNotification('Cannot delete category: It still has tasks assigned to it. Please delete or reassign those tasks first.', 'error');
+        } else {
+            showNotification('Failed to delete category: ' + error.message, 'error');
+        }
     }
 }
 
@@ -652,6 +754,19 @@ function updateActionButtons() {
  * Show add category modal
  */
 function showAddCategoryModal() {
+    // Only reset if not in edit mode
+    if (AppState.modalMode !== 'edit') {
+        AppState.modalMode = 'add';
+        AppState.editingCategory = null;
+        
+        document.getElementById('input-category-name').value = '';
+        document.getElementById('input-category-color').value = '';
+        
+        document.querySelector('.modal-title').textContent = 'Add Category';
+        document.querySelector('#form-add-category button[type="submit"]').textContent = 'Create';
+    }
+    
+    // Show modal
     document.getElementById('modal-overlay').classList.remove('hidden');
 }
 
@@ -660,6 +775,10 @@ function showAddCategoryModal() {
  */
 function hideModal() {
     document.getElementById('modal-overlay').classList.add('hidden');
+    
+    // Reset state
+    AppState.modalMode = 'add';
+    AppState.editingCategory = null;
 }
 
 /**
