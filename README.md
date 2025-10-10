@@ -53,6 +53,36 @@ The API will be available at:
 - **Alternative Docs**: `http://localhost:8000/redoc` (ReDoc)
 - **Health Check**: `http://localhost:8000/health`
 
+### 4. Open the Frontend
+
+Navigate to: `http://localhost:8000/app`
+
+## Usage
+
+### First Time Setup
+
+1. **Create Categories** (e.g., "Deep Work", "Learning", "Exercise")
+   - Use the "Add Category" button in the sidebar
+   - Assign colors for visual organization
+
+2. **Create Blocks** (your night shift work blocks)
+   - Use the API docs at `/docs` to create blocks
+   - Set start/end times, title, and block_number (for ordering)
+
+3. **Create Tasks** (within blocks)
+   - Use the API docs to create tasks
+   - Assign to a block and category
+   - Set estimated minutes
+
+### Daily Workflow
+
+1. **Open the app** - See your "Next Block" prominently displayed
+2. **Complete tasks** - Click checkboxes as you finish each task
+3. **Monitor progress** - Watch the progress bar update
+4. **Complete block** - When done, click "Complete & Reset Block"
+5. **Automatic cycle** - Block moves to end, next block loads automatically
+6. **Repeat** - Continue through your night shift! 🌙
+
 ## Data Model
 
 ### Category
@@ -94,7 +124,13 @@ See [SERVICES_LAYER_GUIDE.md](./SERVICES_LAYER_GUIDE.md) for detailed documentat
 - [x] Schemas Layer - Pydantic validation
 - [x] Services Layer - Business logic with recurring blocks support
 - [x] API Layer - RESTful endpoints (34 endpoints implemented)
-- [ ] Frontend - Bloomberg Terminal-styled UI
+- [x] Frontend - Bloomberg Terminal-styled UI (HTML/CSS/JS)
+
+## Documentation
+
+- **[SERVICES_LAYER_GUIDE.md](./SERVICES_LAYER_GUIDE.md)** - Services layer and recurring blocks
+- **[API_LAYER_GUIDE.md](./API_LAYER_GUIDE.md)** - API endpoints documentation
+- **[FRONTEND_GUIDE.md](./FRONTEND_GUIDE.md)** - Frontend implementation guide
 
 ## Environment Variables
 

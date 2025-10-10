@@ -49,6 +49,179 @@ router = APIRouter()
 
 
 # ============================================================================
+# QUEUE MANAGEMENT OPERATIONS (Must come BEFORE parameterized routes!)
+# ============================================================================
+
+@router.get("/next", response_model=dict)
+def get_next_block(
+    db: Session = Depends(get_db)
+):
+    """
+    Get the next block in the queue that has incomplete tasks.
+    
+    This returns the block with the lowest block_number that still has
+    incomplete tasks.
+    
+    Useful for:
+    - "What should I work on next?" UI feature
+    - Automatic block selection
+    - Progress tracking
+    
+    Returns:
+    - Dictionary with block info and progress, or message if no blocks
+    
+    Example Response:
+    ```json
+    {
+        "block": {...},
+        "total_tasks": 5,
+        "completed_tasks": 2,
+        "completion_percentage": 40.0
+    }
+    ```
+    
+    Or if no blocks available:
+    ```json
+    {
+        "message": "No blocks available"
+    }
+    ```
+    """
+    # Call service layer to get next block
+    result = block_service.get_next_block(db)
+    
+    # If no blocks available, return a message
+    if not result:
+        return {"message": "No blocks available"}
+    
+    # Convert SQLAlchemy Block object to Pydantic model for JSON serialization
+    return {
+        "block": Block.model_validate(result["block"]),
+        "total_tasks": result["total_tasks"],
+        "completed_tasks": result["completed_tasks"],
+        "completion_percentage": result["completion_percentage"]
+    }
+
+
+@router.get("/active", response_model=List[Block])
+def get_active_blocks(
+    day_number: Optional[int] = Query(None, ge=1, le=7, description="Filter by day number"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get blocks that have incomplete tasks (active work).
+    
+    This returns blocks that are "in progress" - they have at least one
+    incomplete task.
+    
+    Query Parameters:
+    - day_number: Optional filter by specific day (1-7)
+    
+    Returns:
+    - List of Block objects that have incomplete tasks
+    
+    Example Response:
+    ```json
+    [
+        {
+            "id": "uuid-123",
+            "title": "Morning Routine",
+            "block_number": 1,
+            ...
+        }
+    ]
+    ```
+    """
+    # Call service layer to get active blocks
+    active_blocks = block_service.get_active_blocks(db, day_number)
+    return active_blocks
+
+
+@router.get("/statistics", response_model=dict)
+def get_block_statistics(
+    db: Session = Depends(get_db)
+):
+    """
+    Get overall statistics for all blocks.
+    
+    Returns aggregate statistics useful for dashboard views.
+    
+    Returns:
+    - Dictionary with:
+      - total_blocks: Total number of blocks
+      - completed_blocks: Blocks with all tasks complete
+      - active_blocks: Blocks with at least one incomplete task
+      - blocks_with_no_tasks: Empty blocks
+    
+    Example Response:
+    ```json
+    {
+        "total_blocks": 20,
+        "completed_blocks": 5,
+        "active_blocks": 12,
+        "blocks_with_no_tasks": 3
+    }
+    ```
+    """
+    # Call service layer to get block statistics
+    stats = block_service.get_block_statistics(db)
+    return stats
+
+
+@router.post("/reorder", response_model=dict)
+def reorder_blocks(
+    block_orders: List[dict] = Body(
+        ...,
+        description="List of dicts with 'block_id' and 'block_number' keys",
+        example=[
+            {"block_id": "uuid-1", "block_number": 1},
+            {"block_id": "uuid-2", "block_number": 2},
+            {"block_id": "uuid-3", "block_number": 3}
+        ]
+    ),
+    db: Session = Depends(get_db)
+):
+    """
+    Update the block_number for multiple blocks at once.
+    
+    This is useful for manual reordering of blocks in the UI (e.g., drag-and-drop).
+    
+    Request Body:
+    - Array of objects with:
+      - block_id: UUID string of the block
+      - block_number: New block number (determines queue position)
+    
+    Returns:
+    - Success status
+    
+    Raises:
+    - 400: If reordering fails
+    
+    Example Request:
+    ```json
+    [
+        {"block_id": "uuid-1", "block_number": 3},
+        {"block_id": "uuid-2", "block_number": 1},
+        {"block_id": "uuid-3", "block_number": 2}
+    ]
+    ```
+    
+    This would reorder blocks: block-2 (1st), block-3 (2nd), block-1 (3rd)
+    """
+    # Call service layer to reorder blocks
+    success = block_service.reorder_blocks(db, block_orders)
+    
+    # If reordering fails, return 400 error
+    if not success:
+        raise HTTPException(
+            status_code=400,
+            detail="Failed to reorder blocks. Check that all block_ids are valid."
+        )
+    
+    return {"success": True, "message": f"Reordered {len(block_orders)} blocks"}
+
+
+# ============================================================================
 # STANDARD CRUD OPERATIONS
 # ============================================================================
 
@@ -163,6 +336,9 @@ def get_block_with_tasks(
     }
     ```
     """
+    # Import Task schema for serialization
+    from app.schemas.task import Task as TaskSchema
+    
     # Call service layer to get block with tasks
     result = block_service.get_block_with_tasks(db, block_id)
     
@@ -173,7 +349,13 @@ def get_block_with_tasks(
             detail=f"Block with id '{block_id}' not found"
         )
     
-    return result
+    # Convert SQLAlchemy objects to Pydantic models for JSON serialization
+    return {
+        "block": Block.model_validate(result["block"]),
+        "tasks": [TaskSchema.model_validate(task) for task in result["tasks"]],
+        "task_count": result["task_count"],
+        "completed_tasks": result["completed_tasks"]
+    }
 
 
 @router.post("/", response_model=Block, status_code=201)
@@ -497,171 +679,4 @@ def clone_block(
         )
     
     return cloned_block
-
-
-# ============================================================================
-# QUEUE MANAGEMENT OPERATIONS
-# ============================================================================
-
-@router.get("/next", response_model=dict)
-def get_next_block(
-    db: Session = Depends(get_db)
-):
-    """
-    Get the next block in the queue that has incomplete tasks.
-    
-    This returns the block with the lowest block_number that still has
-    incomplete tasks.
-    
-    Useful for:
-    - "What should I work on next?" UI feature
-    - Automatic block selection
-    - Progress tracking
-    
-    Returns:
-    - Dictionary with block info and progress, or message if no blocks
-    
-    Example Response:
-    ```json
-    {
-        "block": {...},
-        "total_tasks": 5,
-        "completed_tasks": 2,
-        "completion_percentage": 40.0
-    }
-    ```
-    
-    Or if no blocks available:
-    ```json
-    {
-        "message": "No blocks available"
-    }
-    ```
-    """
-    # Call service layer to get next block
-    result = block_service.get_next_block(db)
-    
-    # If no blocks available, return a message
-    if not result:
-        return {"message": "No blocks available"}
-    
-    return result
-
-
-@router.get("/active", response_model=List[Block])
-def get_active_blocks(
-    day_number: Optional[int] = Query(None, ge=1, le=7, description="Filter by day number"),
-    db: Session = Depends(get_db)
-):
-    """
-    Get blocks that have incomplete tasks (active work).
-    
-    This returns blocks that are "in progress" - they have at least one
-    incomplete task.
-    
-    Query Parameters:
-    - day_number: Optional filter by specific day (1-7)
-    
-    Returns:
-    - List of Block objects that have incomplete tasks
-    
-    Example Response:
-    ```json
-    [
-        {
-            "id": "uuid-123",
-            "title": "Morning Routine",
-            "block_number": 1,
-            ...
-        }
-    ]
-    ```
-    """
-    # Call service layer to get active blocks
-    active_blocks = block_service.get_active_blocks(db, day_number)
-    return active_blocks
-
-
-@router.post("/reorder", response_model=dict)
-def reorder_blocks(
-    block_orders: List[dict] = Body(
-        ...,
-        description="List of dicts with 'block_id' and 'block_number' keys",
-        example=[
-            {"block_id": "uuid-1", "block_number": 1},
-            {"block_id": "uuid-2", "block_number": 2},
-            {"block_id": "uuid-3", "block_number": 3}
-        ]
-    ),
-    db: Session = Depends(get_db)
-):
-    """
-    Update the block_number for multiple blocks at once.
-    
-    This is useful for manual reordering of blocks in the UI (e.g., drag-and-drop).
-    
-    Request Body:
-    - Array of objects with:
-      - block_id: UUID string of the block
-      - block_number: New block number (determines queue position)
-    
-    Returns:
-    - Success status
-    
-    Raises:
-    - 400: If reordering fails
-    
-    Example Request:
-    ```json
-    [
-        {"block_id": "uuid-1", "block_number": 3},
-        {"block_id": "uuid-2", "block_number": 1},
-        {"block_id": "uuid-3", "block_number": 2}
-    ]
-    ```
-    
-    This would reorder blocks: block-2 (1st), block-3 (2nd), block-1 (3rd)
-    """
-    # Call service layer to reorder blocks
-    success = block_service.reorder_blocks(db, block_orders)
-    
-    # If reordering fails, return 400 error
-    if not success:
-        raise HTTPException(
-            status_code=400,
-            detail="Failed to reorder blocks. Check that all block_ids are valid."
-        )
-    
-    return {"success": True, "message": f"Reordered {len(block_orders)} blocks"}
-
-
-@router.get("/statistics", response_model=dict)
-def get_block_statistics(
-    db: Session = Depends(get_db)
-):
-    """
-    Get overall statistics for all blocks.
-    
-    Returns aggregate statistics useful for dashboard views.
-    
-    Returns:
-    - Dictionary with:
-      - total_blocks: Total number of blocks
-      - completed_blocks: Blocks with all tasks complete
-      - active_blocks: Blocks with at least one incomplete task
-      - blocks_with_no_tasks: Empty blocks
-    
-    Example Response:
-    ```json
-    {
-        "total_blocks": 20,
-        "completed_blocks": 5,
-        "active_blocks": 12,
-        "blocks_with_no_tasks": 3
-    }
-    ```
-    """
-    # Call service layer to get block statistics
-    stats = block_service.get_block_statistics(db)
-    return stats
 

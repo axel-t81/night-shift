@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Night Shift App - Terminal</title>
+    
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="/static/css/styles.css">
+    
+    <!-- Favicon (optional - can add later) -->
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+</head>
+<body>
+    <!-- Main Container -->
+    <div class="app-container">
+        
+        <!-- Header Section -->
+        <header class="app-header">
+            <div class="header-content">
+                <!-- App Title -->
+                <div class="header-title">
+                    <h1>NIGHT_SHIFT_TERMINAL</h1>
+                    <span class="header-subtitle">// Deep Work Tracking System v1.0</span>
+                </div>
+                
+                <!-- Header Stats - Quick overview -->
+                <div class="header-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">ACTIVE_BLOCKS</span>
+                        <span class="stat-value" id="stat-active-blocks">--</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">TOTAL_TASKS</span>
+                        <span class="stat-value" id="stat-total-tasks">--</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">STATUS</span>
+                        <span class="stat-value status-indicator" id="stat-status">IDLE</span>
+                    </div>
+                </div>
+                
+                <!-- Refresh Button -->
+                <button class="btn-icon" id="btn-refresh" title="Refresh Data">
+                    <span>⟳</span>
+                </button>
+            </div>
+        </header>
+        
+        <!-- Main Content Area -->
+        <main class="app-main">
+            
+            <!-- Left Sidebar - Statistics & Categories -->
+            <aside class="sidebar sidebar-left">
+                
+                <!-- Statistics Panel -->
+                <section class="panel statistics-panel">
+                    <h2 class="panel-title">&gt; STATISTICS</h2>
+                    <div class="panel-content">
+                        <div class="stat-row">
+                            <span class="stat-name">Total Blocks:</span>
+                            <span class="stat-data" id="stats-total-blocks">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-name">Completed:</span>
+                            <span class="stat-data stat-success" id="stats-completed-blocks">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-name">In Progress:</span>
+                            <span class="stat-data stat-warning" id="stats-active-blocks">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-name">Empty:</span>
+                            <span class="stat-data stat-muted" id="stats-empty-blocks">0</span>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Categories Panel -->
+                <section class="panel categories-panel">
+                    <h2 class="panel-title">&gt; CATEGORIES</h2>
+                    <div class="panel-content">
+                        <!-- Categories will be dynamically loaded here -->
+                        <div id="categories-list" class="categories-list">
+                            <div class="loading-text">Loading categories...</div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Quick Actions Panel -->
+                <section class="panel actions-panel">
+                    <h2 class="panel-title">&gt; ACTIONS</h2>
+                    <div class="panel-content">
+                        <button class="btn btn-secondary btn-full" id="btn-view-all-blocks">
+                            View All Blocks
+                        </button>
+                        <button class="btn btn-secondary btn-full" id="btn-add-category">
+                            + Add Category
+                        </button>
+                    </div>
+                </section>
+                
+            </aside>
+            
+            <!-- Center Content - Next Block & Block Queue -->
+            <div class="main-content">
+                
+                <!-- Next Block Section - Most Prominent -->
+                <section class="panel next-block-panel">
+                    <h2 class="panel-title">&gt; NEXT_BLOCK [PRIORITY]</h2>
+                    <div class="panel-content">
+                        <!-- Next block will be rendered here -->
+                        <div id="next-block-content" class="next-block-content">
+                            <div class="loading-text">Loading next block...</div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Active Blocks Queue -->
+                <section class="panel blocks-queue-panel">
+                    <h2 class="panel-title">&gt; ACTIVE_BLOCKS_QUEUE</h2>
+                    <div class="panel-content">
+                        <!-- Block queue will be rendered here -->
+                        <div id="blocks-queue" class="blocks-queue">
+                            <div class="loading-text">Loading blocks queue...</div>
+                        </div>
+                    </div>
+                </section>
+                
+            </div>
+            
+            <!-- Right Sidebar - Task Details & Progress -->
+            <aside class="sidebar sidebar-right">
+                
+                <!-- Current Block Info -->
+                <section class="panel block-info-panel">
+                    <h2 class="panel-title">&gt; BLOCK_INFO</h2>
+                    <div class="panel-content">
+                        <div id="block-info" class="block-info">
+                            <div class="info-text">Select a block to view details</div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Tasks List -->
+                <section class="panel tasks-panel">
+                    <h2 class="panel-title">&gt; TASKS</h2>
+                    <div class="panel-content">
+                        <!-- Tasks will be rendered here -->
+                        <div id="tasks-list" class="tasks-list">
+                            <div class="info-text">No tasks to display</div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Progress Panel -->
+                <section class="panel progress-panel">
+                    <h2 class="panel-title">&gt; PROGRESS</h2>
+                    <div class="panel-content">
+                        <div id="progress-info" class="progress-info">
+                            <!-- Progress bar -->
+                            <div class="progress-bar-container">
+                                <div class="progress-bar" id="progress-bar" style="width: 0%"></div>
+                            </div>
+                            <div class="progress-text">
+                                <span id="progress-percentage">0%</span> Complete
+                            </div>
+                            <div class="progress-stats">
+                                <div class="progress-stat">
+                                    <span class="progress-label">Completed:</span>
+                                    <span class="progress-value" id="progress-completed">0</span>
+                                </div>
+                                <div class="progress-stat">
+                                    <span class="progress-label">Remaining:</span>
+                                    <span class="progress-value" id="progress-remaining">0</span>
+                                </div>
+                                <div class="progress-stat">
+                                    <span class="progress-label">Est. Time:</span>
+                                    <span class="progress-value" id="progress-time">0 min</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Block Actions -->
+                <section class="panel block-actions-panel">
+                    <h2 class="panel-title">&gt; BLOCK_ACTIONS</h2>
+                    <div class="panel-content">
+                        <button class="btn btn-success btn-full" id="btn-complete-block" disabled>
+                            Complete & Reset Block
+                        </button>
+                        <button class="btn btn-warning btn-full" id="btn-reset-tasks" disabled>
+                            Reset All Tasks
+                        </button>
+                    </div>
+                </section>
+                
+            </aside>
+            
+        </main>
+        
+        <!-- Footer -->
+        <footer class="app-footer">
+            <div class="footer-content">
+                <div class="footer-left">
+                    <span class="footer-text">Night Shift App v1.0</span>
+                    <span class="footer-separator">|</span>
+                    <span class="footer-text" id="footer-status">Ready</span>
+                </div>
+                <div class="footer-right">
+                    <span class="footer-text" id="footer-time">--:--:--</span>
+                    <span class="footer-separator">|</span>
+                    <span class="footer-text" id="footer-connection">Connected</span>
+                </div>
+            </div>
+        </footer>
+        
+    </div>
+    
+    <!-- Notification System -->
+    <div id="notifications" class="notifications-container"></div>
+    
+    <!-- Modal for adding categories (optional - can be added later) -->
+    <div id="modal-overlay" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Add Category</h3>
+                <button class="modal-close" id="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="form-add-category">
+                    <div class="form-group">
+                        <label for="input-category-name">Category Name:</label>
+                        <input type="text" id="input-category-name" class="form-input" 
+                               placeholder="e.g., Deep Work" required maxlength="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="input-category-color">Color (hex):</label>
+                        <input type="text" id="input-category-color" class="form-input" 
+                               placeholder="e.g., #33ff33" pattern="^#[0-9A-Fa-f]{6}$">
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Create</button>
+                        <button type="button" class="btn btn-secondary" id="btn-cancel-category">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Scripts -->
+    <!-- Load API client first, then main app -->
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
+
