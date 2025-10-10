@@ -41,6 +41,18 @@ This creates a SQLite database (`night_shift.db`) with the following tables:
 - `blocks` - Time blocks for pomodoro sessions
 - `tasks` - Individual tasks within blocks
 
+### 3. Run the API Server
+
+```bash
+uvicorn app.main:app --reload
+```
+
+The API will be available at:
+- **API Base**: `http://localhost:8000/api`
+- **Interactive Docs**: `http://localhost:8000/docs` (Swagger UI)
+- **Alternative Docs**: `http://localhost:8000/redoc` (ReDoc)
+- **Health Check**: `http://localhost:8000/health`
+
 ## Data Model
 
 ### Category
@@ -81,7 +93,7 @@ See [SERVICES_LAYER_GUIDE.md](./SERVICES_LAYER_GUIDE.md) for detailed documentat
 - [x] Models Layer - Database schema with SQLAlchemy
 - [x] Schemas Layer - Pydantic validation
 - [x] Services Layer - Business logic with recurring blocks support
-- [ ] API Layer - RESTful endpoints
+- [x] API Layer - RESTful endpoints (34 endpoints implemented)
 - [ ] Frontend - Bloomberg Terminal-styled UI
 
 ## Environment Variables
