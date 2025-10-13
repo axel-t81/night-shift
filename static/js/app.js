@@ -100,6 +100,15 @@ function setupEventListeners() {
             hideModal();
         }
     });
+
+    // Delete category modal
+    document.getElementById('delete-modal-close').addEventListener('click', hideDeleteCategoryModal);
+    document.getElementById('btn-cancel-delete').addEventListener('click', hideDeleteCategoryModal);
+    document.getElementById('delete-modal-overlay').addEventListener('click', (e) => {
+        if (e.target.id === 'delete-modal-overlay') {
+            hideDeleteCategoryModal();
+        }
+    });
 }
 
 // =============================================================================
@@ -453,7 +462,7 @@ function renderCategories() {
                 <div class="category-name">${escapeHtml(category.name)}</div>
                 <div class="category-actions">
                     <button class="btn-icon-sm" onclick="handleEditCategory('${category.id}')" title="Edit category">✎</button>
-                    <button class="btn-icon-sm btn-danger" onclick="handleDeleteCategory('${category.id}')" title="Delete category">×</button>
+                    <button class="btn-icon-sm btn-danger" onclick="handleDeleteCategory('${category.id}', '${escapeHtml(category.name)}')" title="Delete category">×</button>
                 </div>
                 <div class="category-count">${category.total_tasks || 0}</div>
             </div>
@@ -664,34 +673,10 @@ async function handleEditCategory(categoryId) {
 /**
  * Handle delete category button click
  * @param {string} categoryId - Category UUID
+ * @param {string} categoryName - Category name for confirmation
  */
-async function handleDeleteCategory(categoryId) {
-    // Find the category name for the confirmation message
-    const category = AppState.categories.find(c => c.id === categoryId);
-    const categoryName = category ? category.name : 'this category';
-    
-    if (!confirm(`Delete "${categoryName}"? This cannot be undone.\n\nNote: You cannot delete categories that have tasks. Remove or reassign tasks first.`)) {
-        return;
-    }
-    
-    try {
-        await API.Category.delete(categoryId);
-        showNotification('Category deleted successfully', 'success');
-        
-        // Reload categories
-        await loadCategories();
-        
-    } catch (error) {
-        console.error('Error deleting category:', error);
-        
-        // Check if it's a foreign key constraint error
-        if (error.message.includes('tasks still reference it') || 
-            error.message.includes('Cannot delete')) {
-            showNotification('Cannot delete category: It still has tasks assigned to it. Please delete or reassign those tasks first.', 'error');
-        } else {
-            showNotification('Failed to delete category: ' + error.message, 'error');
-        }
-    }
+async function handleDeleteCategory(categoryId, categoryName) {
+    showDeleteCategoryModal(categoryId, categoryName);
 }
 
 // =============================================================================
@@ -749,6 +734,58 @@ function updateActionButtons() {
     completeBtn.disabled = !hasSelectedBlock || !hasTasks;
     resetBtn.disabled = !hasSelectedBlock || !hasTasks;
 }
+
+/**
+ * Show the delete category confirmation modal
+ * @param {string} categoryId - The ID of the category to delete
+ * @param {string} categoryName - The name of the category for the confirmation message
+ */
+function showDeleteCategoryModal(categoryId, categoryName) {
+    const deleteModalOverlay = document.getElementById('delete-modal-overlay');
+    const deleteCategoryName = document.getElementById('delete-category-name');
+    const btnConfirmDelete = document.getElementById('btn-confirm-delete');
+
+    deleteCategoryName.textContent = categoryName;
+
+    // This ensures we don't stack event listeners
+    const newBtn = btnConfirmDelete.cloneNode(true);
+    btnConfirmDelete.parentNode.replaceChild(newBtn, btnConfirmDelete);
+
+    newBtn.addEventListener('click', async () => {
+        hideDeleteCategoryModal();
+        try {
+            updateStatus('Deleting category...');
+            await API.Category.delete(categoryId);
+            showNotification('Category deleted successfully', 'success');
+            
+            // Reload data
+            await loadCategories();
+            await loadStatistics();
+            await loadActiveBlocks();
+            
+        } catch (error) {
+            console.error('Error deleting category:', error);
+            if (error.message.includes('tasks still reference it') || error.message.includes('Cannot delete')) {
+                showNotification('Cannot delete category: It still has tasks assigned to it. Please delete or reassign them first.', 'error');
+            } else {
+                showNotification('Failed to delete category: ' + error.message, 'error');
+            }
+        } finally {
+            updateStatus('Ready');
+        }
+    });
+
+    deleteModalOverlay.classList.remove('hidden');
+}
+
+/**
+ * Hide the delete category confirmation modal
+ */
+function hideDeleteCategoryModal() {
+    const deleteModalOverlay = document.getElementById('delete-modal-overlay');
+    deleteModalOverlay.classList.add('hidden');
+}
+
 
 /**
  * Show add category modal

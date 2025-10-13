@@ -120,10 +120,14 @@ def create_block(db: Session, block: BlockCreate) -> Block:
     Returns:
         Newly created Block object
     """
-    # If block_number not provided, set to next available number
+    # If block_number not provided, set to next available number (1-15 cycle)
     if block.block_number is None:
         max_block_number = db.query(func.max(Block.block_number)).scalar()
-        block_number = (max_block_number + 1) if max_block_number is not None else 1
+        if max_block_number is not None:
+            # Cycle from 1 to 15
+            block_number = (max_block_number % 15) + 1
+        else:
+            block_number = 1
     else:
         block_number = block.block_number
     
@@ -238,11 +242,14 @@ def move_block_to_end(db: Session, block_id: str) -> Optional[Block]:
     if not block:
         return None
     
-    # Find the highest block_number
+    # Find the highest block_number and cycle from 1-15
     max_block_number = db.query(func.max(Block.block_number)).scalar()
     
-    # Set this block's number to be higher
-    new_block_number = (max_block_number + 1) if max_block_number is not None else 1
+    # Set this block's number to cycle (1-15)
+    if max_block_number is not None:
+        new_block_number = (max_block_number % 15) + 1
+    else:
+        new_block_number = 1
     block.block_number = new_block_number
     
     db.commit()
@@ -341,9 +348,12 @@ def clone_block(
         duration = source_block.end_time - source_block.start_time
         new_end_time = new_start_time + duration
     
-    # Find next block number
+    # Find next block number (1-15 cycle)
     max_block_number = db.query(func.max(Block.block_number)).scalar()
-    new_block_number = (max_block_number + 1) if max_block_number is not None else 1
+    if max_block_number is not None:
+        new_block_number = (max_block_number % 15) + 1
+    else:
+        new_block_number = 1
     
     # Create new block
     new_block = Block(

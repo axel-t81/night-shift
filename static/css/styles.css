@@ -612,6 +612,17 @@ body {
     background-color: rgba(255, 204, 0, 0.1);
 }
 
+button.btn-danger {
+    color: var(--color-text-white);
+    border-color: var(--color-error);
+    background-color: var(--color-error);
+}
+
+button.btn-danger:hover:not(:disabled) {
+    border-color: var(--color-text-white);
+    background-color: #ff5c85; /* A slightly lighter red on hover */
+}
+
 .btn-secondary {
     color: var(--color-text-secondary);
     border-color: var(--color-text-secondary);
@@ -672,12 +683,13 @@ body {
     color: var(--color-text-white);
 }
 
-.btn-icon-sm.btn-danger {
+button.btn-icon-sm.btn-danger {
     color: var(--color-error); /* Use error color variable */
     border-color: var(--color-border);
+    background-color: transparent;
 }
 
-.btn-icon-sm.btn-danger:hover {
+button.btn-icon-sm.btn-danger:hover {
     background-color: rgba(255, 51, 102, 0.1);
     border-color: var(--color-error);
     color: var(--color-text-white);

@@ -462,3 +462,14 @@ db.close()
 - Transaction management handled within services (commit/rollback)
 - Extensive documentation in `SERVICES_LAYER_GUIDE.md`
 
+---
+
+## October 13, 2025 - UI/UX and Numbering Updates
+
+### Summary
+
+- Frontend: Added in-app delete confirmation modal in `templates/index.html`; wired handlers in `static/js/app.js`.
+- Frontend: Moved "Add Category" button under the `> CATEGORIES` panel.
+- Frontend: Improved delete confirmation button contrast in `static/css/styles.css`; preserved icon delete button appearance.
+- Backend: Block numbering now cycles 1–15 in `app/services/block_service.py` (`create_block`, `move_block_to_end`, `clone_block`).
+

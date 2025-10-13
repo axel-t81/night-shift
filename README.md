@@ -57,6 +57,12 @@ The API will be available at:
 
 Navigate to: `http://localhost:8000/app`
 
+## Behavior Notes
+
+- **Block numbering**: Blocks are numbered 1–15 and then loop back to 1.
+- **Delete confirmation**: Category deletions use an in-app confirmation modal (no browser dialogs).
+- **Add Category button**: Located under the `> CATEGORIES` panel in the left sidebar.
+
 ## Usage
 
 ### First Time Setup
