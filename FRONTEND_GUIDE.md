@@ -26,7 +26,10 @@ Database
 
 **Key Sections**:
 - **Header**: App title, quick stats, refresh button
-- **Left Sidebar**: Statistics panel, categories list, quick actions
+- **Left Sidebar**: 
+  - Statistics panel
+  - Quick Actions panel (+ Add Block, + Add Category)
+  - Categories list
 - **Main Content**: 
   - Next Block section (priority display)
   - Active Blocks queue
@@ -36,7 +39,7 @@ Database
   - Progress bar and stats
   - Block action buttons
 - **Footer**: Status bar with clock
-- **Modal**: Add category form
+- **Modals**: Add category form, Add block form
 - **Notifications**: Toast notification system
 
 **Layout Structure**:
@@ -521,9 +524,9 @@ Navigate to: `http://localhost:8000/app`
 
 ### 3. Create Test Data (if needed)
 
-Use the API docs at `http://localhost:8000/docs` to:
+Use the frontend UI or API docs at `http://localhost:8000/docs` to:
 1. Create categories (e.g., "Deep Work", "Learning")
-2. Create blocks (with start/end times)
+2. Create blocks (with title and optional description)
 3. Create tasks (assigned to blocks and categories)
 
 ### 4. Use the App

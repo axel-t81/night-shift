@@ -97,7 +97,7 @@ print(f"Block is {progress['completion_percentage']}% complete")
 
 ### 3. Block Service (`block_service.py`)
 
-Manages time blocks (Pomodoro sessions) with **special recurring block support**.
+Manages blocks (task containers) with **special recurring block support**.
 
 #### Key Functions
 
@@ -113,7 +113,7 @@ Manages time blocks (Pomodoro sessions) with **special recurring block support**
 - **`reset_block_tasks(db, block_id)`** - Reset all tasks in a block to incomplete
 - **`move_block_to_end(db, block_id)`** - Move block to end of queue
 - **`complete_and_reset_block(db, block_id, move_to_end)`** - **KEY FUNCTION** for recurring blocks
-- **`clone_block(db, block_id, new_start_time, new_end_time, copy_tasks)`** - Create copy of block
+- **`clone_block(db, block_id, copy_tasks)`** - Create copy of block with tasks
 
 ##### Queue Management
 - **`reorder_blocks(db, block_orders)`** - Update block ordering
@@ -193,25 +193,21 @@ Block #5: Morning Routine (moved to end)
 
 ## Cloning Blocks for True Recurrence
 
-If you want to create multiple instances of the same block (e.g., "Morning Routine" every day), use `clone_block()`:
+If you want to create multiple instances of the same block (e.g., "Morning Routine" template), use `clone_block()`:
 
 ```python
-from datetime import datetime, timedelta
-
-# Clone a block for tomorrow
+# Clone a block
 source_block_id = "morning-routine-template-id"
-new_start = datetime.now() + timedelta(days=1)
 
 new_block = block_service.clone_block(
     db,
     source_block_id,
-    new_start_time=new_start,
     copy_tasks=True  # Copy all tasks from source block
 )
 
 # Now you have two separate blocks:
 # 1. Original "Morning Routine" block
-# 2. New "Morning Routine (Copy)" block for tomorrow
+# 2. New "Morning Routine (Copy)" block
 ```
 
 ---
@@ -237,11 +233,11 @@ Category
 
 Block
 ├── id (UUID)
-├── start_time
-├── end_time
 ├── title
+├── description (optional, max 200 chars)
 ├── block_number (for ordering)
-└── day_number (optional)
+├── day_number (optional, 1-5)
+└── created_at
 
 Task
 ├── id (UUID)
@@ -354,10 +350,10 @@ from datetime import datetime, timedelta
 def test_recurring_block(db_session):
     # Create a block
     block_data = BlockCreate(
-        start_time=datetime.now(),
-        end_time=datetime.now() + timedelta(hours=2),
         title="Test Block",
-        block_number=1
+        description="Test description",
+        block_number=1,
+        day_number=1
     )
     block = block_service.create_block(db_session, block_data)
     

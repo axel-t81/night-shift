@@ -76,6 +76,19 @@
                     </div>
                 </section>
                 
+                <!-- Quick Actions Panel -->
+                <section class="panel quick-actions-panel">
+                    <h2 class="panel-title">&gt; QUICK_ACTIONS</h2>
+                    <div class="panel-content">
+                        <button class="btn btn-primary btn-full" id="btn-add-block">
+                            + Add Block
+                        </button>
+                        <button class="btn btn-secondary btn-full" id="btn-add-category">
+                            + Add Category
+                        </button>
+                    </div>
+                </section>
+                
                 <!-- Categories Panel -->
                 <section class="panel categories-panel">
                     <h2 class="panel-title">&gt; CATEGORIES</h2>
@@ -84,9 +97,6 @@
                         <div id="categories-list" class="categories-list">
                             <div class="loading-text">Loading categories...</div>
                         </div>
-                        <button class="btn btn-secondary btn-full" id="btn-add-category" style="margin-top: 10px;">
-                            + Add Category
-                        </button>
                     </div>
                 </section>
                 
@@ -253,6 +263,45 @@
                     <button class="btn btn-danger" id="btn-confirm-delete">Delete</button>
                     <button class="btn btn-secondary" id="btn-cancel-delete">Cancel</button>
                 </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal for adding blocks -->
+    <div id="block-modal-overlay" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Add Block</h3>
+                <button class="modal-close" id="block-modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="form-add-block">
+                    <div class="form-group">
+                        <label for="input-block-title">Block Title: *</label>
+                        <input type="text" id="input-block-title" class="form-input" 
+                               placeholder="e.g., Morning Deep Work" required maxlength="200">
+                    </div>
+                    <div class="form-group">
+                        <label for="input-block-description">Description:</label>
+                        <textarea id="input-block-description" class="form-input" 
+                                  placeholder="Optional description (max 200 chars)" 
+                                  maxlength="200" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="input-block-number">Block Number:</label>
+                        <input type="number" id="input-block-number" class="form-input" 
+                               placeholder="Optional - auto-assigned if empty" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="input-block-day-number">Day Number (1-5):</label>
+                        <input type="number" id="input-block-day-number" class="form-input" 
+                               placeholder="Optional (1-5)" min="1" max="5">
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Create Block</button>
+                        <button type="button" class="btn btn-secondary" id="btn-cancel-block">Cancel</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

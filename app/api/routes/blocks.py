@@ -105,7 +105,7 @@ def get_next_block(
 
 @router.get("/active", response_model=List[Block])
 def get_active_blocks(
-    day_number: Optional[int] = Query(None, ge=1, le=7, description="Filter by day number"),
+    day_number: Optional[int] = Query(None, ge=1, le=5, description="Filter by day number"),
     db: Session = Depends(get_db)
 ):
     """
@@ -115,7 +115,7 @@ def get_active_blocks(
     incomplete task.
     
     Query Parameters:
-    - day_number: Optional filter by specific day (1-7)
+    - day_number: Optional filter by specific day (1-5)
     
     Returns:
     - List of Block objects that have incomplete tasks
@@ -229,8 +229,8 @@ def reorder_blocks(
 def list_blocks(
     skip: int = Query(0, ge=0, description="Number of records to skip for pagination"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
-    day_number: Optional[int] = Query(None, ge=1, le=7, description="Filter by day number (1-7)"),
-    order_by: str = Query("block_number", regex="^(block_number|start_time|created_at)$", 
+    day_number: Optional[int] = Query(None, ge=1, le=5, description="Filter by day number (1-5)"),
+    order_by: str = Query("block_number", regex="^(block_number|created_at)$", 
                           description="Field to order by"),
     db: Session = Depends(get_db)
 ):
@@ -240,8 +240,8 @@ def list_blocks(
     Query Parameters:
     - skip: Number of records to skip (for pagination)
     - limit: Maximum number of records to return (1-1000)
-    - day_number: Filter by specific day (1-7)
-    - order_by: Field to order by (block_number, start_time, or created_at)
+    - day_number: Filter by specific day (1-5)
+    - order_by: Field to order by (block_number or created_at)
     
     Returns:
     - List of Block objects ordered by the specified field
@@ -251,9 +251,8 @@ def list_blocks(
     [
         {
             "id": "uuid-123",
-            "start_time": "2024-01-15T22:00:00",
-            "end_time": "2024-01-16T00:00:00",
-            "title": "Night Shift Block 1",
+            "title": "Morning Deep Work",
+            "description": "Focus on coding projects",
             "block_number": 1,
             "day_number": 1,
             "created_at": "2024-01-15T10:30:00"
@@ -364,14 +363,13 @@ def create_block(
     db: Session = Depends(get_db)
 ):
     """
-    Create a new time block.
+    Create a new block.
     
     Request Body:
-    - start_time: Block start time (ISO 8601 datetime)
-    - end_time: Block end time (must be after start_time)
     - title: Block title (required, 1-200 characters)
+    - description: Optional description (max 200 characters)
     - block_number: Order within day (optional, auto-assigned if not provided)
-    - day_number: Day of cycle (optional, 1-7)
+    - day_number: Day of cycle (optional, 1-5)
     
     If block_number is not provided, it will be auto-assigned as the next available number.
     
@@ -379,14 +377,13 @@ def create_block(
     - Newly created Block object with generated id and timestamps
     
     Raises:
-    - 422: Validation error (e.g., end_time before start_time)
+    - 422: Validation error
     
     Example Request:
     ```json
     {
-        "start_time": "2024-01-15T22:00:00",
-        "end_time": "2024-01-16T00:00:00",
-        "title": "Night Shift Block 1",
+        "title": "Morning Deep Work",
+        "description": "Focus on coding projects",
         "block_number": 1,
         "day_number": 1
     }
@@ -411,11 +408,10 @@ def update_block(
     - block_id: UUID string of the block to update
     
     Request Body (all fields optional):
-    - start_time: New start time
-    - end_time: New end time
     - title: New title
+    - description: New description
     - block_number: New block number
-    - day_number: New day number
+    - day_number: New day number (1-5)
     
     Only provided fields will be updated. Omitted fields remain unchanged.
     
@@ -621,23 +617,19 @@ def move_block_to_end(
 @router.post("/{block_id}/clone", response_model=Block)
 def clone_block(
     block_id: str,
-    new_start_time: Optional[datetime] = Body(None, description="New start time for cloned block"),
-    new_end_time: Optional[datetime] = Body(None, description="New end time for cloned block"),
     copy_tasks: bool = Body(True, description="Whether to copy all tasks from source block"),
     db: Session = Depends(get_db)
 ):
     """
     Create a copy of a block, optionally with all its tasks.
     
-    This is useful for creating true recurring blocks - you can clone a
-    "template" block multiple times for different days/times.
+    This is useful for creating recurring blocks - you can clone a
+    "template" block multiple times.
     
     Path Parameters:
     - block_id: UUID string of the block to clone
     
     Request Body:
-    - new_start_time: Optional new start time (defaults to original + 1 day)
-    - new_end_time: Optional new end time (defaults to maintain same duration)
     - copy_tasks: Whether to copy all tasks (default: true)
     
     Returns:
@@ -648,16 +640,16 @@ def clone_block(
     
     Example Use Case:
     You have a "Morning Routine" template block. Clone it to create
-    a separate instance for tomorrow.
+    a separate instance.
     
     Example Response:
     ```json
     {
         "id": "new-uuid",
         "title": "Morning Routine (Copy)",
-        "start_time": "2024-01-16T22:00:00",
-        "end_time": "2024-01-17T00:00:00",
+        "description": "Daily morning tasks",
         "block_number": 11,
+        "day_number": 1,
         ...
     }
     ```
@@ -666,8 +658,6 @@ def clone_block(
     cloned_block = block_service.clone_block(
         db,
         block_id,
-        new_start_time=new_start_time,
-        new_end_time=new_end_time,
         copy_tasks=copy_tasks
     )
     

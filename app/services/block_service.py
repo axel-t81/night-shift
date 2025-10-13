@@ -48,8 +48,8 @@ def get_all_blocks(
         db: Database session
         skip: Number of records to skip
         limit: Maximum number of records to return
-        day_number: Filter by specific day (1-7)
-        order_by: Field to order by ("block_number", "start_time", "created_at")
+        day_number: Filter by specific day (1-5)
+        order_by: Field to order by ("block_number", "created_at")
         
     Returns:
         List of Block objects
@@ -62,8 +62,6 @@ def get_all_blocks(
     # Apply ordering
     if order_by == "block_number":
         query = query.order_by(Block.block_number)
-    elif order_by == "start_time":
-        query = query.order_by(Block.start_time)
     else:
         query = query.order_by(Block.created_at)
     
@@ -111,7 +109,7 @@ def get_block_with_tasks(db: Session, block_id: str) -> Optional[Dict]:
 
 def create_block(db: Session, block: BlockCreate) -> Block:
     """
-    Create a new time block.
+    Create a new block.
     
     Args:
         db: Database session
@@ -120,21 +118,19 @@ def create_block(db: Session, block: BlockCreate) -> Block:
     Returns:
         Newly created Block object
     """
-    # If block_number not provided, set to next available number (1-15 cycle)
+    # If block_number not provided, set to next available number
     if block.block_number is None:
         max_block_number = db.query(func.max(Block.block_number)).scalar()
         if max_block_number is not None:
-            # Cycle from 1 to 15
-            block_number = (max_block_number % 15) + 1
+            block_number = max_block_number + 1
         else:
             block_number = 1
     else:
         block_number = block.block_number
     
     db_block = Block(
-        start_time=block.start_time,
-        end_time=block.end_time,
         title=block.title,
+        description=block.description,
         block_number=block_number,
         day_number=block.day_number
     )
@@ -317,8 +313,6 @@ def complete_and_reset_block(db: Session, block_id: str, move_to_end: bool = Tru
 def clone_block(
     db: Session,
     block_id: str,
-    new_start_time: Optional[datetime] = None,
-    new_end_time: Optional[datetime] = None,
     copy_tasks: bool = True
 ) -> Optional[Block]:
     """
@@ -330,8 +324,6 @@ def clone_block(
     Args:
         db: Database session
         block_id: UUID string of the block to clone
-        new_start_time: Optional new start time (defaults to original + 1 day)
-        new_end_time: Optional new end time (defaults to original + 1 day)
         copy_tasks: Whether to copy all tasks from the original block
         
     Returns:
@@ -341,25 +333,17 @@ def clone_block(
     if not source_block:
         return None
     
-    # Calculate new times if not provided
-    if new_start_time is None:
-        new_start_time = source_block.start_time + timedelta(days=1)
-    if new_end_time is None:
-        duration = source_block.end_time - source_block.start_time
-        new_end_time = new_start_time + duration
-    
-    # Find next block number (1-15 cycle)
+    # Find next block number
     max_block_number = db.query(func.max(Block.block_number)).scalar()
     if max_block_number is not None:
-        new_block_number = (max_block_number % 15) + 1
+        new_block_number = max_block_number + 1
     else:
         new_block_number = 1
     
     # Create new block
     new_block = Block(
-        start_time=new_start_time,
-        end_time=new_end_time,
         title=f"{source_block.title} (Copy)",
+        description=source_block.description,
         block_number=new_block_number,
         day_number=source_block.day_number
     )

@@ -109,6 +109,33 @@ function setupEventListeners() {
             hideDeleteCategoryModal();
         }
     });
+    
+    // Add block button
+    document.getElementById('btn-add-block').addEventListener('click', () => {
+        showAddBlockModal();
+    });
+    
+    // Block modal close
+    document.getElementById('block-modal-close').addEventListener('click', () => {
+        hideBlockModal();
+    });
+    
+    document.getElementById('btn-cancel-block').addEventListener('click', () => {
+        hideBlockModal();
+    });
+    
+    // Block form submit
+    document.getElementById('form-add-block').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await handleAddBlock();
+    });
+    
+    // Click outside block modal to close
+    document.getElementById('block-modal-overlay').addEventListener('click', (e) => {
+        if (e.target.id === 'block-modal-overlay') {
+            hideBlockModal();
+        }
+    });
 }
 
 // =============================================================================
@@ -277,6 +304,7 @@ function renderNextBlock() {
             <div class="block-header">
                 <div>
                     <div class="block-title-text">${escapeHtml(block.title)}</div>
+                    ${block.description ? `<div class="block-description">${escapeHtml(block.description)}</div>` : ''}
                     <div class="block-meta">
                         <div class="block-meta-item">
                             <span class="block-meta-label">Block:</span>
@@ -285,10 +313,6 @@ function renderNextBlock() {
                         <div class="block-meta-item">
                             <span class="block-meta-label">Day:</span>
                             <span>${block.day_number || 'N/A'}</span>
-                        </div>
-                        <div class="block-meta-item">
-                            <span class="block-meta-label">Time:</span>
-                            <span>${formatTime(block.start_time)} - ${formatTime(block.end_time)}</span>
                         </div>
                     </div>
                 </div>
@@ -322,9 +346,7 @@ function renderBlockQueue() {
                     <div class="block-queue-title">${escapeHtml(block.title)}</div>
                     <div class="block-queue-number">#${block.block_number || '?'}</div>
                 </div>
-                <div class="block-queue-info">
-                    ${formatTime(block.start_time)} - ${formatTime(block.end_time)}
-                </div>
+                ${block.description ? `<div class="block-queue-info">${escapeHtml(block.description)}</div>` : ''}
             </div>
         `;
     }).join('');
@@ -350,6 +372,12 @@ function renderBlockInfo() {
             <span class="stat-name">Title:</span>
             <span class="stat-data">${escapeHtml(block.title)}</span>
         </div>
+        ${block.description ? `
+        <div class="stat-row">
+            <span class="stat-name">Description:</span>
+            <span class="stat-data">${escapeHtml(block.description)}</span>
+        </div>
+        ` : ''}
         <div class="stat-row">
             <span class="stat-name">Block #:</span>
             <span class="stat-data">${block.block_number || 'N/A'}</span>
@@ -357,14 +385,6 @@ function renderBlockInfo() {
         <div class="stat-row">
             <span class="stat-name">Day:</span>
             <span class="stat-data">${block.day_number || 'N/A'}</span>
-        </div>
-        <div class="stat-row">
-            <span class="stat-name">Start:</span>
-            <span class="stat-data">${formatDateTime(block.start_time)}</span>
-        </div>
-        <div class="stat-row">
-            <span class="stat-name">End:</span>
-            <span class="stat-data">${formatDateTime(block.end_time)}</span>
         </div>
         <div class="stat-row">
             <span class="stat-name">Created:</span>
@@ -784,6 +804,92 @@ function showDeleteCategoryModal(categoryId, categoryName) {
 function hideDeleteCategoryModal() {
     const deleteModalOverlay = document.getElementById('delete-modal-overlay');
     deleteModalOverlay.classList.add('hidden');
+}
+
+/**
+ * Show add block modal
+ */
+function showAddBlockModal() {
+    // Reset form
+    document.getElementById('form-add-block').reset();
+    
+    // Show modal
+    document.getElementById('block-modal-overlay').classList.remove('hidden');
+}
+
+/**
+ * Hide block modal
+ */
+function hideBlockModal() {
+    document.getElementById('block-modal-overlay').classList.add('hidden');
+    
+    // Reset form
+    document.getElementById('form-add-block').reset();
+}
+
+/**
+ * Handle add block form submission
+ */
+async function handleAddBlock() {
+    const titleInput = document.getElementById('input-block-title');
+    const descriptionInput = document.getElementById('input-block-description');
+    const blockNumberInput = document.getElementById('input-block-number');
+    const dayNumberInput = document.getElementById('input-block-day-number');
+    
+    const title = titleInput.value.trim();
+    const description = descriptionInput.value.trim() || null;
+    const blockNumber = blockNumberInput.value ? parseInt(blockNumberInput.value) : null;
+    const dayNumber = dayNumberInput.value ? parseInt(dayNumberInput.value) : null;
+    
+    // Validate required fields
+    if (!title) {
+        showNotification('Block title is required', 'error');
+        return;
+    }
+    
+    try {
+        updateStatus('Creating block...');
+        
+        // Prepare block data
+        const blockData = {
+            title: title
+        };
+        
+        // Add optional fields if provided
+        if (description) {
+            blockData.description = description;
+        }
+        
+        if (blockNumber !== null) {
+            blockData.block_number = blockNumber;
+        }
+        
+        if (dayNumber !== null) {
+            blockData.day_number = dayNumber;
+        }
+        
+        // Create block via API
+        const newBlock = await API.Block.create(blockData);
+        
+        showNotification('Block created successfully!', 'success');
+        
+        // Close modal and reset form
+        hideBlockModal();
+        
+        // Reload data to show new block
+        await Promise.all([
+            loadActiveBlocks(),
+            loadStatistics(),
+            loadNextBlock()
+        ]);
+        
+        updateStatus('Ready');
+        
+    } catch (error) {
+        console.error('Error creating block:', error);
+        showNotification('Failed to create block: ' + error.message, 'error');
+        updateStatus('Error');
+    }
 }
 
 

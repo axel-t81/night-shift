@@ -95,8 +95,8 @@ Frontend → API Routes (FastAPI) → Services Layer → Models → Database
 | GET | `/api/blocks/statistics` | Get overall block statistics |
 
 **Key Features**:
-- Filtering by day_number
-- Multiple ordering options (block_number, start_time, created_at)
+- Filtering by day_number (1-5)
+- Multiple ordering options (block_number, created_at)
 - Full recurring block support
 - Queue management
 - Progress tracking
@@ -168,9 +168,8 @@ curl -X POST "http://localhost:8000/api/categories" \
 curl -X POST "http://localhost:8000/api/blocks" \
   -H "Content-Type: application/json" \
   -d '{
-    "start_time": "2024-01-15T22:00:00",
-    "end_time": "2024-01-16T00:00:00",
-    "title": "Night Shift Block 1",
+    "title": "Morning Deep Work",
+    "description": "Focus on coding projects",
     "block_number": 1,
     "day_number": 1
   }'
@@ -335,7 +334,7 @@ Base.metadata.create_all(bind=engine)
 
 Tables:
 - `categories` - Categories/projects
-- `blocks` - Time blocks
+- `blocks` - Work blocks for organizing tasks
 - `tasks` - Individual tasks
 
 For production, use Alembic migrations instead.

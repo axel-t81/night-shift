@@ -59,9 +59,9 @@ Navigate to: `http://localhost:8000/app`
 
 ## Behavior Notes
 
-- **Block numbering**: Blocks are numbered 1–15 and then loop back to 1.
+- **Block numbering**: Blocks are numbered sequentially (auto-assigned if not specified).
 - **Delete confirmation**: Category deletions use an in-app confirmation modal (no browser dialogs).
-- **Add Category button**: Located under the `> CATEGORIES` panel in the left sidebar.
+- **Quick Actions panel**: Located between Statistics and Categories panels with "+ Add Block" and "+ Add Category" buttons.
 
 ## Usage
 
@@ -71,9 +71,9 @@ Navigate to: `http://localhost:8000/app`
    - Use the "Add Category" button in the sidebar
    - Assign colors for visual organization
 
-2. **Create Blocks** (your night shift work blocks)
-   - Use the API docs at `/docs` to create blocks
-   - Set start/end times, title, and block_number (for ordering)
+2. **Create Blocks** (your work blocks for organizing tasks)
+   - Use the "Add Block" button in the Quick Actions panel
+   - Set title, optional description, and block_number (for ordering)
 
 3. **Create Tasks** (within blocks)
    - Use the API docs to create tasks
@@ -96,8 +96,8 @@ Navigate to: `http://localhost:8000/app`
 - Has name and optional color
 
 ### Block
-- Category-agnostic time container
-- Has start/end time, title, block/day numbers
+- Category-agnostic container for organizing tasks
+- Has title, optional description, block number (ordering), day number (1-5)
 - Contains multiple tasks
 
 ### Task
