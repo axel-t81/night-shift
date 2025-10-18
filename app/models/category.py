@@ -18,7 +18,7 @@ class Category(Base):
 
     # Relationships
     tasks = relationship("Task", back_populates="category", cascade="all, delete-orphan")
-    blocks = relationship("Block", back_populates="category")
+    blocks = relationship("Block", back_populates="category", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Category(id={self.id}, name={self.name})>"

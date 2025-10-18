@@ -22,7 +22,11 @@ const AppState = {
     blockProgress: null,       // Progress for selected block
     isLoading: false,          // Loading state
     modalMode: 'add',          // Modal mode: 'add' or 'edit'
-    editingCategory: null      // Category being edited (when in edit mode)
+    editingCategory: null,     // Category being edited (when in edit mode)
+    blockModalMode: 'add',     // Block modal mode: 'add' or 'edit'
+    editingBlock: null,        // Block being edited (when in edit mode)
+    taskModalMode: 'add',      // Task modal mode: 'add' or 'edit'
+    editingTask: null          // Task being edited (when in edit mode)
 };
 
 // =============================================================================
@@ -107,6 +111,24 @@ function setupEventListeners() {
     document.getElementById('delete-modal-overlay').addEventListener('click', (e) => {
         if (e.target.id === 'delete-modal-overlay') {
             hideDeleteCategoryModal();
+        }
+    });
+    
+    // Delete block modal
+    document.getElementById('delete-block-modal-close').addEventListener('click', hideDeleteBlockModal);
+    document.getElementById('btn-cancel-delete-block').addEventListener('click', hideDeleteBlockModal);
+    document.getElementById('delete-block-modal-overlay').addEventListener('click', (e) => {
+        if (e.target.id === 'delete-block-modal-overlay') {
+            hideDeleteBlockModal();
+        }
+    });
+    
+    // Delete task modal
+    document.getElementById('delete-task-modal-close').addEventListener('click', hideDeleteTaskModal);
+    document.getElementById('btn-cancel-delete-task').addEventListener('click', hideDeleteTaskModal);
+    document.getElementById('delete-task-modal-overlay').addEventListener('click', (e) => {
+        if (e.target.id === 'delete-task-modal-overlay') {
+            hideDeleteTaskModal();
         }
     });
     
@@ -371,6 +393,10 @@ function renderBlockQueue() {
                  onclick="handleBlockClick('${block.id}')">
                 <div class="block-queue-header">
                     <div class="block-queue-title">${escapeHtml(block.title)}</div>
+                    <div class="block-actions">
+                        <button class="btn-icon-sm" onclick="event.stopPropagation(); handleEditBlock('${block.id}')" title="Edit block">✎</button>
+                        <button class="btn-icon-sm btn-danger" onclick="event.stopPropagation(); handleDeleteBlock('${block.id}', '${escapeHtml(block.title)}')" title="Delete block">×</button>
+                    </div>
                     <div class="block-queue-number">#${block.block_number || '?'}</div>
                 </div>
                 ${block.description ? `<div class="block-queue-info">${escapeHtml(block.description)}</div>` : ''}
@@ -456,6 +482,10 @@ function renderTasks() {
                         ${task.completed && task.actual_minutes ? `<span>✓ ${task.actual_minutes} min</span>` : ''}
                         ${task.completed_at ? `<span>📅 ${formatDateTime(task.completed_at)}</span>` : ''}
                     </div>
+                </div>
+                <div class="task-actions">
+                    <button class="btn-icon-sm" onclick="handleEditTask('${task.id}')" title="Edit task">✎</button>
+                    <button class="btn-icon-sm btn-danger" onclick="handleDeleteTask('${task.id}', '${escapeHtml(task.title)}')" title="Delete task">×</button>
                 </div>
             </div>
         `;
@@ -837,8 +867,17 @@ function hideDeleteCategoryModal() {
  * Show add block modal
  */
 function showAddBlockModal() {
-    // Reset form
-    document.getElementById('form-add-block').reset();
+    // Only reset if not in edit mode
+    if (AppState.blockModalMode !== 'edit') {
+        AppState.blockModalMode = 'add';
+        AppState.editingBlock = null;
+        
+        document.getElementById('form-add-block').reset();
+        
+        // Update modal title and button
+        document.querySelector('#block-modal-overlay .modal-title').textContent = 'Add Block';
+        document.querySelector('#form-add-block button[type="submit"]').textContent = 'Create Block';
+    }
     
     // Populate category dropdown
     populateBlockCategoryDropdown();
@@ -871,12 +910,14 @@ function populateBlockCategoryDropdown() {
 function hideBlockModal() {
     document.getElementById('block-modal-overlay').classList.add('hidden');
     
-    // Reset form
+    // Reset form and state
     document.getElementById('form-add-block').reset();
+    AppState.blockModalMode = 'add';
+    AppState.editingBlock = null;
 }
 
 /**
- * Handle add block form submission
+ * Handle add/edit block form submission
  */
 async function handleAddBlock() {
     const titleInput = document.getElementById('input-block-title');
@@ -898,39 +939,32 @@ async function handleAddBlock() {
     }
     
     try {
-        updateStatus('Creating block...');
-        
         // Prepare block data
-        const blockData = {
-            title: title
-        };
+        const blockData = {};
         
-        // Add optional fields if provided
-        if (description) {
-            blockData.description = description;
+        // Add fields to update (only changed fields for edit)
+        if (title) blockData.title = title;
+        if (description !== null) blockData.description = description;
+        if (blockNumber !== null) blockData.block_number = blockNumber;
+        if (dayNumber !== null) blockData.day_number = dayNumber;
+        if (categoryId !== null) blockData.category_id = categoryId;
+        
+        if (AppState.blockModalMode === 'edit' && AppState.editingBlock) {
+            // Update existing block
+            updateStatus('Updating block...');
+            await API.Block.update(AppState.editingBlock.id, blockData);
+            showNotification('Block updated successfully!', 'success');
+        } else {
+            // Create new block
+            updateStatus('Creating block...');
+            await API.Block.create(blockData);
+            showNotification('Block created successfully!', 'success');
         }
-        
-        if (blockNumber !== null) {
-            blockData.block_number = blockNumber;
-        }
-        
-        if (dayNumber !== null) {
-            blockData.day_number = dayNumber;
-        }
-        
-        if (categoryId) {
-            blockData.category_id = categoryId;
-        }
-        
-        // Create block via API
-        const newBlock = await API.Block.create(blockData);
-        
-        showNotification('Block created successfully!', 'success');
         
         // Close modal and reset form
         hideBlockModal();
         
-        // Reload data to show new block
+        // Reload data to show changes
         await Promise.all([
             loadActiveBlocks(),
             loadStatistics(),
@@ -940,10 +974,111 @@ async function handleAddBlock() {
         updateStatus('Ready');
         
     } catch (error) {
-        console.error('Error creating block:', error);
-        showNotification('Failed to create block: ' + error.message, 'error');
+        console.error('Error saving block:', error);
+        showNotification('Failed to save block: ' + error.message, 'error');
         updateStatus('Error');
     }
+}
+
+/**
+ * Handle edit block button click
+ * @param {string} blockId - Block UUID
+ */
+async function handleEditBlock(blockId) {
+    try {
+        // Load the full block data
+        const block = await API.Block.getById(blockId);
+        
+        if (!block) {
+            showNotification('Block not found', 'error');
+            return;
+        }
+        
+        // Set modal to edit mode
+        AppState.blockModalMode = 'edit';
+        AppState.editingBlock = block;
+        
+        // Pre-fill the form
+        document.getElementById('input-block-title').value = block.title || '';
+        document.getElementById('input-block-description').value = block.description || '';
+        document.getElementById('input-block-number').value = block.block_number || '';
+        document.getElementById('input-block-day-number').value = block.day_number || '';
+        
+        // Populate category dropdown first
+        populateBlockCategoryDropdown();
+        
+        // Set selected category
+        document.getElementById('input-block-category').value = block.category_id || '';
+        
+        // Update modal title and button
+        document.querySelector('#block-modal-overlay .modal-title').textContent = 'Edit Block';
+        document.querySelector('#form-add-block button[type="submit"]').textContent = 'Update Block';
+        
+        // Show modal
+        showAddBlockModal();
+        
+    } catch (error) {
+        console.error('Error loading block for edit:', error);
+        showNotification('Failed to load block', 'error');
+    }
+}
+
+/**
+ * Handle delete block button click
+ * @param {string} blockId - Block UUID
+ * @param {string} blockTitle - Block title for confirmation
+ */
+async function handleDeleteBlock(blockId, blockTitle) {
+    showDeleteBlockModal(blockId, blockTitle);
+}
+
+/**
+ * Show the delete block confirmation modal
+ * @param {string} blockId - The ID of the block to delete
+ * @param {string} blockTitle - The title of the block for the confirmation message
+ */
+function showDeleteBlockModal(blockId, blockTitle) {
+    const deleteModalOverlay = document.getElementById('delete-block-modal-overlay');
+    const deleteBlockName = document.getElementById('delete-block-name');
+    const btnConfirmDelete = document.getElementById('btn-confirm-delete-block');
+
+    deleteBlockName.textContent = blockTitle;
+
+    // Replace button to avoid stacking event listeners
+    const newBtn = btnConfirmDelete.cloneNode(true);
+    btnConfirmDelete.parentNode.replaceChild(newBtn, btnConfirmDelete);
+
+    newBtn.addEventListener('click', async () => {
+        hideDeleteBlockModal();
+        try {
+            updateStatus('Deleting block...');
+            await API.Block.delete(blockId);
+            showNotification('Block deleted successfully', 'success');
+            
+            // Reload data
+            await Promise.all([
+                loadActiveBlocks(),
+                loadStatistics(),
+                loadNextBlock()
+            ]);
+            
+        } catch (error) {
+            console.error('Error deleting block:', error);
+            showNotification('Failed to delete block: ' + error.message, 'error');
+        } finally {
+            updateStatus('Ready');
+        }
+    });
+
+    deleteModalOverlay.classList.remove('hidden');
+}
+
+/**
+ * Hide the delete block confirmation modal
+ */
+function hideDeleteBlockModal() {
+    const deleteModalOverlay = document.getElementById('delete-block-modal-overlay');
+    deleteModalOverlay.classList.add('hidden');
 }
 
 
@@ -982,8 +1117,17 @@ function hideModal() {
  * Show add task modal
  */
 async function showAddTaskModal() {
-    // Reset form
-    document.getElementById('form-add-task').reset();
+    // Only reset if not in edit mode
+    if (AppState.taskModalMode !== 'edit') {
+        AppState.taskModalMode = 'add';
+        AppState.editingTask = null;
+        
+        document.getElementById('form-add-task').reset();
+        
+        // Update modal title and button
+        document.querySelector('#task-modal-overlay .modal-title').textContent = 'Add Task';
+        document.querySelector('#form-add-task button[type="submit"]').textContent = 'Create Task';
+    }
     
     // Populate block dropdown with all blocks
     await populateTaskBlockDropdown();
@@ -998,8 +1142,10 @@ async function showAddTaskModal() {
 function hideTaskModal() {
     document.getElementById('task-modal-overlay').classList.add('hidden');
     
-    // Reset form
+    // Reset form and state
     document.getElementById('form-add-task').reset();
+    AppState.taskModalMode = 'add';
+    AppState.editingTask = null;
 }
 
 /**
@@ -1041,7 +1187,7 @@ async function populateTaskBlockDropdown() {
 }
 
 /**
- * Handle add task form submission
+ * Handle add/edit task form submission
  */
 async function handleAddTask() {
     const blockSelect = document.getElementById('input-task-block');
@@ -1073,37 +1219,38 @@ async function handleAddTask() {
     }
     
     try {
-        updateStatus('Creating task...');
+        // Prepare task data
+        const taskData = {};
         
-        // Prepare task data (no category_id - inherited from block)
-        const taskData = {
-            block_id: blockId,
-            title: title,
-            estimated_minutes: estimatedMinutes,
-            position: position
-        };
+        if (blockId) taskData.block_id = blockId;
+        if (title) taskData.title = title;
+        if (description !== null) taskData.description = description;
+        if (estimatedMinutes) taskData.estimated_minutes = estimatedMinutes;
+        if (position !== null) taskData.position = position;
         
-        // Add optional description
-        if (description) {
-            taskData.description = description;
+        if (AppState.taskModalMode === 'edit' && AppState.editingTask) {
+            // Update existing task
+            updateStatus('Updating task...');
+            await API.Task.update(AppState.editingTask.id, taskData);
+            showNotification('Task updated successfully!', 'success');
+        } else {
+            // Create new task
+            updateStatus('Creating task...');
+            await API.Task.create(taskData);
+            showNotification('Task created successfully!', 'success');
         }
-        
-        // Create task via API
-        const newTask = await API.Task.create(taskData);
-        
-        showNotification('Task created successfully!', 'success');
         
         // Close modal and reset form
         hideTaskModal();
         
-        // Reload data to show new task
+        // Reload data to show changes
         await Promise.all([
             loadActiveBlocks(),
             loadStatistics(),
             loadNextBlock()
         ]);
         
-        // If the block we added the task to is currently selected, reload its tasks
+        // If the block we're working with is currently selected, reload its tasks
         if (AppState.selectedBlock && AppState.selectedBlock.id === blockId) {
             await selectBlock(blockId);
         }
@@ -1111,10 +1258,119 @@ async function handleAddTask() {
         updateStatus('Ready');
         
     } catch (error) {
-        console.error('Error creating task:', error);
-        showNotification('Failed to create task: ' + error.message, 'error');
+        console.error('Error saving task:', error);
+        showNotification('Failed to save task: ' + error.message, 'error');
         updateStatus('Error');
     }
+}
+
+/**
+ * Handle edit task button click
+ * @param {string} taskId - Task UUID
+ */
+async function handleEditTask(taskId) {
+    try {
+        // Find the task in our current list first
+        let task = AppState.tasks.find(t => t.id === taskId);
+        
+        // If not found in current block, fetch it
+        if (!task) {
+            task = await API.Task.getById(taskId);
+        }
+        
+        if (!task) {
+            showNotification('Task not found', 'error');
+            return;
+        }
+        
+        // Set modal to edit mode
+        AppState.taskModalMode = 'edit';
+        AppState.editingTask = task;
+        
+        // Populate block dropdown first
+        await populateTaskBlockDropdown();
+        
+        // Pre-fill the form
+        document.getElementById('input-task-block').value = task.block_id || '';
+        document.getElementById('input-task-title').value = task.title || '';
+        document.getElementById('input-task-description').value = task.description || '';
+        document.getElementById('input-task-estimated-minutes').value = task.estimated_minutes || '';
+        document.getElementById('input-task-position').value = task.position || 0;
+        
+        // Update modal title and button
+        document.querySelector('#task-modal-overlay .modal-title').textContent = 'Edit Task';
+        document.querySelector('#form-add-task button[type="submit"]').textContent = 'Update Task';
+        
+        // Show modal
+        await showAddTaskModal();
+        
+    } catch (error) {
+        console.error('Error loading task for edit:', error);
+        showNotification('Failed to load task', 'error');
+    }
+}
+
+/**
+ * Handle delete task button click
+ * @param {string} taskId - Task UUID
+ * @param {string} taskTitle - Task title for confirmation
+ */
+async function handleDeleteTask(taskId, taskTitle) {
+    showDeleteTaskModal(taskId, taskTitle);
+}
+
+/**
+ * Show the delete task confirmation modal
+ * @param {string} taskId - The ID of the task to delete
+ * @param {string} taskTitle - The title of the task for the confirmation message
+ */
+function showDeleteTaskModal(taskId, taskTitle) {
+    const deleteModalOverlay = document.getElementById('delete-task-modal-overlay');
+    const deleteTaskName = document.getElementById('delete-task-name');
+    const btnConfirmDelete = document.getElementById('btn-confirm-delete-task');
+
+    deleteTaskName.textContent = taskTitle;
+
+    // Replace button to avoid stacking event listeners
+    const newBtn = btnConfirmDelete.cloneNode(true);
+    btnConfirmDelete.parentNode.replaceChild(newBtn, btnConfirmDelete);
+
+    newBtn.addEventListener('click', async () => {
+        hideDeleteTaskModal();
+        try {
+            updateStatus('Deleting task...');
+            await API.Task.delete(taskId);
+            showNotification('Task deleted successfully', 'success');
+            
+            // Reload data
+            await Promise.all([
+                loadActiveBlocks(),
+                loadStatistics(),
+                loadNextBlock()
+            ]);
+            
+            // If we have a selected block, reload its tasks
+            if (AppState.selectedBlock) {
+                await selectBlock(AppState.selectedBlock.id);
+            }
+            
+        } catch (error) {
+            console.error('Error deleting task:', error);
+            showNotification('Failed to delete task: ' + error.message, 'error');
+        } finally {
+            updateStatus('Ready');
+        }
+    });
+
+    deleteModalOverlay.classList.remove('hidden');
+}
+
+/**
+ * Hide the delete task confirmation modal
+ */
+function hideDeleteTaskModal() {
+    const deleteModalOverlay = document.getElementById('delete-task-modal-overlay');
+    deleteModalOverlay.classList.add('hidden');
 }
 
 /**

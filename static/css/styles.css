@@ -577,6 +577,29 @@ body {
     opacity: 1;
 }
 
+.block-actions {
+    display: flex;
+    gap: var(--spacing-xs);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.block-queue-item:hover .block-actions {
+    opacity: 1;
+}
+
+.task-actions {
+    display: flex;
+    gap: var(--spacing-xs);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    margin-left: auto;
+}
+
+.task-item:hover .task-actions {
+    opacity: 1;
+}
+
 /* ============================================================================
    BUTTONS
    ============================================================================ */
@@ -651,6 +674,16 @@ button.btn-danger:hover:not(:disabled) {
 
 .btn-secondary:hover:not(:disabled) {
     background-color: rgba(0, 212, 255, 0.1);
+}
+
+.btn-accent {
+    color: #ff8c00;
+    border-color: #ff8c00;
+}
+
+.btn-accent:hover:not(:disabled) {
+    background-color: rgba(255, 140, 0, 0.1);
+    box-shadow: 0 0 15px rgba(255, 140, 0, 0.5);
 }
 
 .btn-full {

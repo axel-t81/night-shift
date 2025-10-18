@@ -15,7 +15,7 @@ class Block(Base):
     description = Column(String(200), nullable=True)
     block_number = Column(Integer, nullable=True)  # Order within a day
     day_number = Column(Integer, nullable=True)    # Which day in the schedule (1-5)
-    category_id = Column(String, ForeignKey("categories.id", ondelete="RESTRICT"), nullable=True)  # Category for this block
+    category_id = Column(String, ForeignKey("categories.id", ondelete="CASCADE"), nullable=True)  # Category for this block
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
