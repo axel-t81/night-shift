@@ -25,14 +25,14 @@ class TaskBase(BaseModel):
     
     Fields:
     - block_id: UUID of the time block this task belongs to
-    - category_id: UUID of the category/project for this task
+    - category_id: UUID of the category/project (optional - inherited from block if not provided)
     - title: Task title/name
     - description: Optional detailed description
     - estimated_minutes: How long you estimate this task will take
     - position: Order of task within its block (for drag-and-drop reordering)
     """
     block_id: str = Field(..., description="ID of the parent time block")
-    category_id: str = Field(..., description="ID of the category/project")
+    category_id: Optional[str] = Field(None, description="ID of the category/project (inherited from block if not specified)")
     title: str = Field(..., min_length=1, max_length=200, description="Task title")
     description: Optional[str] = Field(None, max_length=250, description="Task description")
     estimated_minutes: int = Field(..., gt=0, description="Estimated time in minutes (must be positive)")

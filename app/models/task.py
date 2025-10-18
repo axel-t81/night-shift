@@ -7,7 +7,12 @@ from app.database import Base
 
 
 class Task(Base):
-    """Task model - individual tasks within time blocks"""
+    """Task model - individual tasks within time blocks
+    
+    Note: category_id can be inherited from the parent block's category.
+    When creating tasks, if category_id is not provided, it will be automatically
+    set from block.category_id by the service layer.
+    """
     __tablename__ = "tasks"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))

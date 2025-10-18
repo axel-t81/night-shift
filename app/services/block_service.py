@@ -31,6 +31,7 @@ import uuid
 
 from app.models.block import Block
 from app.models.task import Task
+from app.models.category import Category
 from app.schemas.block import BlockCreate, BlockUpdate
 
 
@@ -107,7 +108,7 @@ def get_block_with_tasks(db: Session, block_id: str) -> Optional[Dict]:
     }
 
 
-def create_block(db: Session, block: BlockCreate) -> Block:
+def create_block(db: Session, block: BlockCreate) -> Optional[Block]:
     """
     Create a new block.
     
@@ -116,8 +117,14 @@ def create_block(db: Session, block: BlockCreate) -> Block:
         block: BlockCreate schema with block data
         
     Returns:
-        Newly created Block object
+        Newly created Block object, or None if category doesn't exist
     """
+    # Validate category if provided
+    if block.category_id:
+        category = db.query(Category).filter(Category.id == block.category_id).first()
+        if not category:
+            return None
+    
     # If block_number not provided, set to next available number
     if block.block_number is None:
         max_block_number = db.query(func.max(Block.block_number)).scalar()
@@ -132,7 +139,8 @@ def create_block(db: Session, block: BlockCreate) -> Block:
         title=block.title,
         description=block.description,
         block_number=block_number,
-        day_number=block.day_number
+        day_number=block.day_number,
+        category_id=block.category_id
     )
     db.add(db_block)
     db.commit()
@@ -345,7 +353,8 @@ def clone_block(
         title=f"{source_block.title} (Copy)",
         description=source_block.description,
         block_number=new_block_number,
-        day_number=source_block.day_number
+        day_number=source_block.day_number,
+        category_id=source_block.category_id
     )
     db.add(new_block)
     db.flush()  # Get the ID without committing

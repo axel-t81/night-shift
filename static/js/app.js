@@ -136,6 +136,33 @@ function setupEventListeners() {
             hideBlockModal();
         }
     });
+    
+    // Add task button
+    document.getElementById('btn-add-task').addEventListener('click', () => {
+        showAddTaskModal();
+    });
+    
+    // Task modal close
+    document.getElementById('task-modal-close').addEventListener('click', () => {
+        hideTaskModal();
+    });
+    
+    document.getElementById('btn-cancel-task').addEventListener('click', () => {
+        hideTaskModal();
+    });
+    
+    // Task form submit
+    document.getElementById('form-add-task').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await handleAddTask();
+    });
+    
+    // Click outside task modal to close
+    document.getElementById('task-modal-overlay').addEventListener('click', (e) => {
+        if (e.target.id === 'task-modal-overlay') {
+            hideTaskModal();
+        }
+    });
 }
 
 // =============================================================================
@@ -813,8 +840,29 @@ function showAddBlockModal() {
     // Reset form
     document.getElementById('form-add-block').reset();
     
+    // Populate category dropdown
+    populateBlockCategoryDropdown();
+    
     // Show modal
     document.getElementById('block-modal-overlay').classList.remove('hidden');
+}
+
+/**
+ * Populate the category dropdown in the block modal
+ */
+function populateBlockCategoryDropdown() {
+    const select = document.getElementById('input-block-category');
+    
+    // Clear existing options except the first one (placeholder)
+    select.innerHTML = '<option value="">-- Select Category (Optional) --</option>';
+    
+    // Add categories
+    AppState.categories.forEach(category => {
+        const option = document.createElement('option');
+        option.value = category.id;
+        option.textContent = category.name;
+        select.appendChild(option);
+    });
 }
 
 /**
@@ -835,11 +883,13 @@ async function handleAddBlock() {
     const descriptionInput = document.getElementById('input-block-description');
     const blockNumberInput = document.getElementById('input-block-number');
     const dayNumberInput = document.getElementById('input-block-day-number');
+    const categorySelect = document.getElementById('input-block-category');
     
     const title = titleInput.value.trim();
     const description = descriptionInput.value.trim() || null;
     const blockNumber = blockNumberInput.value ? parseInt(blockNumberInput.value) : null;
     const dayNumber = dayNumberInput.value ? parseInt(dayNumberInput.value) : null;
+    const categoryId = categorySelect.value || null;
     
     // Validate required fields
     if (!title) {
@@ -866,6 +916,10 @@ async function handleAddBlock() {
         
         if (dayNumber !== null) {
             blockData.day_number = dayNumber;
+        }
+        
+        if (categoryId) {
+            blockData.category_id = categoryId;
         }
         
         // Create block via API
@@ -922,6 +976,145 @@ function hideModal() {
     // Reset state
     AppState.modalMode = 'add';
     AppState.editingCategory = null;
+}
+
+/**
+ * Show add task modal
+ */
+async function showAddTaskModal() {
+    // Reset form
+    document.getElementById('form-add-task').reset();
+    
+    // Populate block dropdown with all blocks
+    await populateTaskBlockDropdown();
+    
+    // Show modal
+    document.getElementById('task-modal-overlay').classList.remove('hidden');
+}
+
+/**
+ * Hide task modal
+ */
+function hideTaskModal() {
+    document.getElementById('task-modal-overlay').classList.add('hidden');
+    
+    // Reset form
+    document.getElementById('form-add-task').reset();
+}
+
+/**
+ * Populate the block dropdown in the task modal with ALL blocks
+ */
+async function populateTaskBlockDropdown() {
+    const select = document.getElementById('input-task-block');
+    
+    // Clear existing options except the first one (placeholder)
+    select.innerHTML = '<option value="">-- Select Block --</option>';
+    
+    try {
+        // Fetch all blocks
+        const blocks = await API.Block.getAll();
+        
+        // Sort by block_number
+        blocks.sort((a, b) => (a.block_number || 0) - (b.block_number || 0));
+        
+        // Add blocks to dropdown
+        blocks.forEach(block => {
+            const option = document.createElement('option');
+            option.value = block.id;
+            option.textContent = `#${block.block_number || '?'} - ${block.title}`;
+            select.appendChild(option);
+        });
+        
+        if (blocks.length === 0) {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = '(No blocks available - create a block first)';
+            option.disabled = true;
+            select.appendChild(option);
+        }
+        
+    } catch (error) {
+        console.error('Error loading blocks for dropdown:', error);
+        showNotification('Failed to load blocks', 'error');
+    }
+}
+
+/**
+ * Handle add task form submission
+ */
+async function handleAddTask() {
+    const blockSelect = document.getElementById('input-task-block');
+    const titleInput = document.getElementById('input-task-title');
+    const descriptionInput = document.getElementById('input-task-description');
+    const estimatedMinutesInput = document.getElementById('input-task-estimated-minutes');
+    const positionInput = document.getElementById('input-task-position');
+    
+    const blockId = blockSelect.value;
+    const title = titleInput.value.trim();
+    const description = descriptionInput.value.trim() || null;
+    const estimatedMinutes = parseInt(estimatedMinutesInput.value);
+    const position = parseInt(positionInput.value) || 0;
+    
+    // Validate required fields
+    if (!blockId) {
+        showNotification('Please select a block', 'error');
+        return;
+    }
+    
+    if (!title) {
+        showNotification('Task title is required', 'error');
+        return;
+    }
+    
+    if (!estimatedMinutes || estimatedMinutes <= 0) {
+        showNotification('Estimated minutes must be a positive number', 'error');
+        return;
+    }
+    
+    try {
+        updateStatus('Creating task...');
+        
+        // Prepare task data (no category_id - inherited from block)
+        const taskData = {
+            block_id: blockId,
+            title: title,
+            estimated_minutes: estimatedMinutes,
+            position: position
+        };
+        
+        // Add optional description
+        if (description) {
+            taskData.description = description;
+        }
+        
+        // Create task via API
+        const newTask = await API.Task.create(taskData);
+        
+        showNotification('Task created successfully!', 'success');
+        
+        // Close modal and reset form
+        hideTaskModal();
+        
+        // Reload data to show new task
+        await Promise.all([
+            loadActiveBlocks(),
+            loadStatistics(),
+            loadNextBlock()
+        ]);
+        
+        // If the block we added the task to is currently selected, reload its tasks
+        if (AppState.selectedBlock && AppState.selectedBlock.id === blockId) {
+            await selectBlock(blockId);
+        }
+        
+        updateStatus('Ready');
+        
+    } catch (error) {
+        console.error('Error creating task:', error);
+        showNotification('Failed to create task: ' + error.message, 'error');
+        updateStatus('Error');
+    }
 }
 
 /**

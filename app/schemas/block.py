@@ -28,11 +28,13 @@ class BlockBase(BaseModel):
     - description: Optional description of the block (max 200 characters)
     - block_number: Optional order within a day (e.g., 1, 2, 3 for 1st, 2nd, 3rd block)
     - day_number: Optional day number in the schedule (1-5)
+    - category_id: Optional category/project for this block (all tasks inherit this)
     """
     title: str = Field(..., min_length=1, max_length=200, description="Block title")
     description: Optional[str] = Field(None, max_length=200, description="Block description")
     block_number: Optional[int] = Field(None, ge=1, description="Order within the day (1, 2, 3, ...)")
     day_number: Optional[int] = Field(None, ge=1, le=5, description="Day of cycle (1-5)")
+    category_id: Optional[str] = Field(None, description="ID of the category/project for this block")
 
 
 # Schema for creating a new block (POST request)

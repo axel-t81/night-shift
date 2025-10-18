@@ -115,24 +115,38 @@ def create_task(db: Session, task: TaskCreate) -> Optional[Task]:
     """
     Create a new task.
     
-    Validates that the block and category exist before creating.
+    Validates that the block exists before creating.
+    If category_id is not provided, it will be inherited from the block's category.
+    If category_id is provided, it must match the block's category (if block has one).
     
     Args:
         db: Database session
         task: TaskCreate schema with task data
         
     Returns:
-        Newly created Task object, or None if block/category doesn't exist
+        Newly created Task object, or None if block doesn't exist or category validation fails
     """
     # Verify block exists
     block = db.query(Block).filter(Block.id == task.block_id).first()
     if not block:
         return None
     
-    # Verify category exists
-    category = db.query(Category).filter(Category.id == task.category_id).first()
-    if not category:
-        return None
+    # Determine category_id: inherit from block if not provided
+    if task.category_id:
+        category_id = task.category_id
+        # Verify category exists
+        category = db.query(Category).filter(Category.id == category_id).first()
+        if not category:
+            return None
+        # If block has a category, ensure task's category matches
+        if block.category_id and block.category_id != category_id:
+            return None
+    else:
+        # Inherit category from block
+        category_id = block.category_id
+        if not category_id:
+            # Block has no category, task must provide one
+            return None
     
     # If position not provided, set to end of block
     if task.position == 0:
@@ -143,7 +157,7 @@ def create_task(db: Session, task: TaskCreate) -> Optional[Task]:
     
     db_task = Task(
         block_id=task.block_id,
-        category_id=task.category_id,
+        category_id=category_id,
         title=task.title,
         description=task.description,
         estimated_minutes=task.estimated_minutes,

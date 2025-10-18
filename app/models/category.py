@@ -16,8 +16,9 @@ class Category(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Relationship to tasks
+    # Relationships
     tasks = relationship("Task", back_populates="category", cascade="all, delete-orphan")
+    blocks = relationship("Block", back_populates="category")
 
     def __repr__(self):
         return f"<Category(id={self.id}, name={self.name})>"
