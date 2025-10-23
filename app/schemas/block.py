@@ -97,6 +97,7 @@ class Block(BlockBase):
     """
     id: str
     created_at: datetime
+    last_completed_at: Optional[datetime] = None
     
     class Config:
         """

@@ -17,6 +17,7 @@ class Block(Base):
     day_number = Column(Integer, nullable=True)    # Which day in the schedule (1-5)
     category_id = Column(String, ForeignKey("categories.id", ondelete="CASCADE"), nullable=True)  # Category for this block
     created_at = Column(DateTime, default=datetime.utcnow)
+    last_completed_at = Column(DateTime, nullable=True)
 
     # Relationships
     tasks = relationship("Task", back_populates="block", cascade="all, delete-orphan")

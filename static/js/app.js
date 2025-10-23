@@ -18,7 +18,6 @@ const AppState = {
     selectedBlock: null,       // Currently selected block for viewing
     tasks: [],                 // Tasks for the selected block
     categories: [],            // All categories
-    statistics: {},            // Overall statistics
     blockProgress: null,       // Progress for selected block
     isLoading: false,          // Loading state
     modalMode: 'add',          // Modal mode: 'add' or 'edit'
@@ -47,6 +46,9 @@ async function init() {
     updateClock();
     setInterval(updateClock, 1000);
     
+    // Load quote
+    loadQuote();
+    
     // Load initial data
     await loadAllData();
     
@@ -73,6 +75,33 @@ function setupEventListeners() {
     document.getElementById('btn-reset-tasks').addEventListener('click', async () => {
         if (AppState.selectedBlock) {
             await handleResetTasks(AppState.selectedBlock.id);
+        }
+    });
+    
+    // Edit quote button
+    document.getElementById('btn-edit-quote').addEventListener('click', () => {
+        showEditQuoteModal();
+    });
+    
+    // Quote modal close
+    document.getElementById('quote-modal-close').addEventListener('click', () => {
+        hideQuoteModal();
+    });
+    
+    document.getElementById('btn-cancel-quote').addEventListener('click', () => {
+        hideQuoteModal();
+    });
+    
+    // Quote form submit
+    document.getElementById('form-edit-quote').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await handleSaveQuote();
+    });
+    
+    // Click outside quote modal to close
+    document.getElementById('quote-modal-overlay').addEventListener('click', (e) => {
+        if (e.target.id === 'quote-modal-overlay') {
+            hideQuoteModal();
         }
     });
     
@@ -203,8 +232,7 @@ async function loadAllData() {
         await Promise.all([
             loadNextBlock(),
             loadActiveBlocks(),
-            loadCategories(),
-            loadStatistics()
+            loadCategories()
         ]);
         
         updateStatus('Ready');
@@ -283,6 +311,13 @@ async function loadCategories() {
     try {
         AppState.categories = await API.Category.getWithTasks();
         renderCategories();
+        // Re-render areas that depend on category names/colors
+        renderBlockQueue();
+        renderNextBlock();
+        if (AppState.selectedBlock) {
+            renderBlockInfo();
+            renderTasks();
+        }
     } catch (error) {
         console.error('Error loading categories:', error);
         throw error;
@@ -290,15 +325,71 @@ async function loadCategories() {
 }
 
 /**
- * Load overall statistics
+ * Load and display the saved quote
  */
-async function loadStatistics() {
+function loadQuote() {
+    const savedQuote = localStorage.getItem('inspirationalQuote');
+    const defaultQuote = 'The only way to do great work is to love what you do.';
+    const quote = savedQuote || defaultQuote;
+    
+    const quoteElement = document.getElementById('quote-text');
+    if (quoteElement) {
+        quoteElement.textContent = quote;
+    }
+}
+
+/**
+ * Save a new quote
+ */
+function saveQuote(newQuote) {
+    if (newQuote && newQuote.trim()) {
+        localStorage.setItem('inspirationalQuote', newQuote.trim());
+        loadQuote();
+        showNotification('Quote updated successfully', 'success');
+    }
+}
+
+/**
+ * Show the edit quote modal
+ */
+function showEditQuoteModal() {
+    const currentQuote = localStorage.getItem('inspirationalQuote') || 'The only way to do great work is to love what you do.';
+    
+    // Pre-fill the textarea with current quote
+    document.getElementById('input-quote-text').value = currentQuote;
+    
+    // Show modal
+    document.getElementById('quote-modal-overlay').classList.remove('hidden');
+}
+
+/**
+ * Hide the edit quote modal
+ */
+function hideQuoteModal() {
+    document.getElementById('quote-modal-overlay').classList.add('hidden');
+    
+    // Reset form
+    document.getElementById('form-edit-quote').reset();
+}
+
+/**
+ * Handle save quote from modal
+ */
+async function handleSaveQuote() {
+    const quoteInput = document.getElementById('input-quote-text');
+    const newQuote = quoteInput.value.trim();
+    
+    if (!newQuote) {
+        showNotification('Quote cannot be empty', 'error');
+        return;
+    }
+    
     try {
-        AppState.statistics = await API.Block.getStatistics();
-        renderStatistics();
+        saveQuote(newQuote);
+        hideQuoteModal();
     } catch (error) {
-        console.error('Error loading statistics:', error);
-        throw error;
+        console.error('Error saving quote:', error);
+        showNotification('Failed to save quote', 'error');
     }
 }
 
@@ -348,24 +439,23 @@ function renderNextBlock() {
     
     const { block } = AppState.nextBlock;
     
+    // Find category for this block
+    const category = AppState.categories.find(c => c.id === block.category_id);
+    const categoryName = category ? category.name : null;
+    const categoryColor = category ? category.color : '#808080';
+    
     const html = `
         <div class="next-block-card" data-block-id="${block.id}">
             <div class="block-header">
                 <div>
                     <div class="block-title-text">${escapeHtml(block.title)}</div>
                     ${block.description ? `<div class="block-description">${escapeHtml(block.description)}</div>` : ''}
-                    <div class="block-meta">
-                        <div class="block-meta-item">
-                            <span class="block-meta-label">Block:</span>
-                            <span>${block.block_number || 'N/A'}</span>
-                        </div>
-                        <div class="block-meta-item">
-                            <span class="block-meta-label">Day:</span>
-                            <span>${block.day_number || 'N/A'}</span>
-                        </div>
-                    </div>
                 </div>
-                <div class="block-number-badge">#${block.block_number || '?'}</div>
+                <div class="block-badges">
+                    ${categoryName ? `<div class="block-category-badge">${escapeHtml(categoryName)}</div>` : ''}
+                    ${block.day_number ? `<div class="block-day-badge">Day ${block.day_number}</div>` : ''}
+                    <div class="block-number-badge">#${block.block_number || '?'}</div>
+                </div>
             </div>
         </div>
     `;
@@ -387,17 +477,26 @@ function renderBlockQueue() {
     const html = AppState.activeBlocks.map(block => {
         const isSelected = AppState.selectedBlock && AppState.selectedBlock.id === block.id;
         
+        // Find category for this block
+        const category = AppState.categories.find(c => c.id === block.category_id);
+        const categoryName = category ? category.name : null;
+        const categoryColor = category ? category.color : '#808080';
+        
         return `
             <div class="block-queue-item ${isSelected ? 'selected' : ''}" 
                  data-block-id="${block.id}"
                  onclick="handleBlockClick('${block.id}')">
                 <div class="block-queue-header">
                     <div class="block-queue-title">${escapeHtml(block.title)}</div>
-                    <div class="block-actions">
-                        <button class="btn-icon-sm" onclick="event.stopPropagation(); handleEditBlock('${block.id}')" title="Edit block">✎</button>
-                        <button class="btn-icon-sm btn-danger" onclick="event.stopPropagation(); handleDeleteBlock('${block.id}', '${escapeHtml(block.title)}')" title="Delete block">×</button>
+                    <div class="block-queue-right">
+                        <div class="block-actions">
+                            <button class="btn-icon-sm" onclick="event.stopPropagation(); handleEditBlock('${block.id}')" title="Edit block">✎</button>
+                            <button class="btn-icon-sm btn-danger" onclick="event.stopPropagation(); handleDeleteBlock('${block.id}', '${escapeHtml(block.title)}')" title="Delete block">×</button>
+                        </div>
+                        ${categoryName ? `<div class="block-queue-category" style="background-color: ${categoryColor};">${escapeHtml(categoryName)}</div>` : ''}
+                        ${block.day_number ? `<div class="block-queue-day">Day ${block.day_number}</div>` : ''}
+                        <div class="block-queue-number">#${block.block_number || '?'}</div>
                     </div>
-                    <div class="block-queue-number">#${block.block_number || '?'}</div>
                 </div>
                 ${block.description ? `<div class="block-queue-info">${escapeHtml(block.description)}</div>` : ''}
             </div>
@@ -442,6 +541,10 @@ function renderBlockInfo() {
         <div class="stat-row">
             <span class="stat-name">Created:</span>
             <span class="stat-data">${formatDateTime(block.created_at)}</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-name">Last Completed:</span>
+            <span class="stat-data">${block.last_completed_at ? formatDateTime(block.last_completed_at) : 'Never'}</span>
         </div>
     `;
     
@@ -549,24 +652,7 @@ function renderCategories() {
     container.innerHTML = html;
 }
 
-/**
- * Render statistics
- */
-function renderStatistics() {
-    const stats = AppState.statistics;
-    
-    document.getElementById('stats-total-blocks').textContent = stats.total_blocks || 0;
-    document.getElementById('stats-completed-blocks').textContent = stats.completed_blocks || 0;
-    document.getElementById('stats-active-blocks').textContent = stats.active_blocks || 0;
-    document.getElementById('stats-empty-blocks').textContent = stats.blocks_with_no_tasks || 0;
-    
-    // Update header stats
-    document.getElementById('stat-active-blocks').textContent = stats.active_blocks || 0;
-    
-    // Calculate total tasks across all active blocks
-    const totalTasks = AppState.tasks.length;
-    document.getElementById('stat-total-tasks').textContent = totalTasks;
-}
+// Statistics rendering removed - replaced with Quote of the Moment panel
 
 // =============================================================================
 // Event Handlers
@@ -837,7 +923,6 @@ function showDeleteCategoryModal(categoryId, categoryName) {
             
             // Reload data
             await loadCategories();
-            await loadStatistics();
             await loadActiveBlocks();
             
         } catch (error) {
@@ -967,7 +1052,6 @@ async function handleAddBlock() {
         // Reload data to show changes
         await Promise.all([
             loadActiveBlocks(),
-            loadStatistics(),
             loadNextBlock()
         ]);
         
@@ -1222,7 +1306,7 @@ async function handleAddTask() {
         // Prepare task data
         const taskData = {};
         
-        if (blockId) taskData.block_id = blockId;
+         if (blockId) taskData.block_id = blockId;
         if (title) taskData.title = title;
         if (description !== null) taskData.description = description;
         if (estimatedMinutes) taskData.estimated_minutes = estimatedMinutes;
@@ -1246,7 +1330,6 @@ async function handleAddTask() {
         // Reload data to show changes
         await Promise.all([
             loadActiveBlocks(),
-            loadStatistics(),
             loadNextBlock()
         ]);
         

@@ -299,6 +299,9 @@ def complete_and_reset_block(db: Session, block_id: str, move_to_end: bool = Tru
         if task.actual_minutes is None:
             task.actual_minutes = task.estimated_minutes
     
+    # Update block's last completed timestamp
+    block.last_completed_at = completion_time
+    
     db.commit()
     
     # Now reset all tasks to incomplete for the next cycle
@@ -414,27 +417,41 @@ def reorder_blocks(db: Session, block_orders: List[Dict[str, int]]) -> bool:
 
 def get_active_blocks(db: Session, day_number: Optional[int] = None) -> List[Block]:
     """
-    Get blocks for active work (incomplete blocks with tasks).
+    Get blocks for active work (blocks with incomplete tasks OR no tasks).
     
     Args:
         db: Database session
         day_number: Optional filter by day number
         
     Returns:
-        List of blocks that have incomplete tasks, ordered by block_number
+        List of blocks that have incomplete tasks or no tasks, ordered by block_number
     """
-    query = db.query(Block).join(Task).filter(Task.completed == False)
+    # Get blocks with incomplete tasks
+    blocks_with_incomplete_tasks = db.query(Block.id).join(Task).filter(
+        Task.completed == False
+    ).group_by(Block.id)
+    
+    # Get blocks with no tasks
+    blocks_with_no_tasks = db.query(Block.id).outerjoin(Task).filter(
+        Task.id == None
+    ).group_by(Block.id)
+    
+    # Union the two queries
+    block_ids_subquery = blocks_with_incomplete_tasks.union(blocks_with_no_tasks).subquery()
+    
+    # Get the actual blocks
+    query = db.query(Block).filter(Block.id.in_(db.query(block_ids_subquery)))
     
     if day_number:
         query = query.filter(Block.day_number == day_number)
     
-    # Group by block to avoid duplicates, order by block_number
-    return query.group_by(Block.id).order_by(Block.block_number).all()
+    # Order by block_number
+    return query.order_by(Block.block_number).all()
 
 
 def get_next_block(db: Session) -> Optional[Dict]:
     """
-    Get the next block in the queue that has incomplete tasks.
+    Get the next block in the queue that has incomplete tasks or no tasks.
     
     This is useful for the UI to show "What's next?"
     
@@ -444,10 +461,23 @@ def get_next_block(db: Session) -> Optional[Dict]:
     Returns:
         Dictionary with block info and progress, or None if no blocks available
     """
-    # Find the block with the lowest block_number that has incomplete tasks
-    block = db.query(Block).join(Task).filter(
+    # Get blocks with incomplete tasks
+    blocks_with_incomplete_tasks = db.query(Block.id).join(Task).filter(
         Task.completed == False
-    ).group_by(Block.id).order_by(Block.block_number).first()
+    ).group_by(Block.id)
+    
+    # Get blocks with no tasks
+    blocks_with_no_tasks = db.query(Block.id).outerjoin(Task).filter(
+        Task.id == None
+    ).group_by(Block.id)
+    
+    # Union the two queries
+    block_ids_subquery = blocks_with_incomplete_tasks.union(blocks_with_no_tasks).subquery()
+    
+    # Find the block with the lowest block_number from the combined set
+    block = db.query(Block).filter(
+        Block.id.in_(db.query(block_ids_subquery))
+    ).order_by(Block.block_number).first()
     
     if not block:
         return None

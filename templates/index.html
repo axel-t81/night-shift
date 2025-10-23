@@ -53,25 +53,15 @@
             <!-- Left Sidebar - Statistics & Categories -->
             <aside class="sidebar sidebar-left">
                 
-                <!-- Statistics Panel -->
-                <section class="panel statistics-panel">
-                    <h2 class="panel-title">&gt; STATISTICS</h2>
+                <!-- Quote of the Moment Panel -->
+                <section class="panel quote-panel">
+                    <h2 class="panel-title">&gt; 当下语录</h2>
                     <div class="panel-content">
-                        <div class="stat-row">
-                            <span class="stat-name">Total Blocks:</span>
-                            <span class="stat-data" id="stats-total-blocks">0</span>
-                        </div>
-                        <div class="stat-row">
-                            <span class="stat-name">Completed:</span>
-                            <span class="stat-data stat-success" id="stats-completed-blocks">0</span>
-                        </div>
-                        <div class="stat-row">
-                            <span class="stat-name">In Progress:</span>
-                            <span class="stat-data stat-warning" id="stats-active-blocks">0</span>
-                        </div>
-                        <div class="stat-row">
-                            <span class="stat-name">Empty:</span>
-                            <span class="stat-data stat-muted" id="stats-empty-blocks">0</span>
+                        <div class="quote-container">
+                            <div class="quote-text" id="quote-text">
+                                The only way to do great work is to love what you do.
+                            </div>
+                            <button class="btn-icon-sm quote-edit-btn" id="btn-edit-quote" title="Edit quote">✎</button>
                         </div>
                     </div>
                 </section>
@@ -394,6 +384,30 @@
                     <button class="btn btn-secondary" id="btn-cancel-delete-task">Cancel</button>
                     <button class="btn btn-danger" id="btn-confirm-delete-task">Delete</button>
                 </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal for editing quote -->
+    <div id="quote-modal-overlay" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Edit Quote</h3>
+                <button class="modal-close" id="quote-modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="form-edit-quote">
+                    <div class="form-group">
+                        <label for="input-quote-text">I当下语录</label>
+                        <textarea id="input-quote-text" class="form-input" 
+                                  placeholder="Enter your inspirational quote..." 
+                                  rows="4" required></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="btn-cancel-quote">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Quote</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

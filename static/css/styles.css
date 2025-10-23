@@ -252,6 +252,33 @@ body {
     font-style: italic;
 }
 
+.block-badges {
+    display: flex;
+    flex-direction: row;
+    gap: var(--spacing-xs);
+    align-items: center;
+}
+
+.block-category-badge {
+    background-color: var(--color-success);
+    color: var(--color-bg);
+    padding: var(--spacing-xs) var(--spacing-md);
+    border-radius: 3px;
+    font-size: var(--font-size-sm);
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+.block-day-badge {
+    background-color: var(--color-success);
+    color: var(--color-bg);
+    padding: var(--spacing-xs) var(--spacing-md);
+    border-radius: 3px;
+    font-size: var(--font-size-sm);
+    font-weight: bold;
+    white-space: nowrap;
+}
+
 .block-number-badge {
     background-color: var(--color-success);
     color: var(--color-bg);
@@ -325,6 +352,28 @@ body {
     font-size: var(--font-size-base);
     color: var(--color-text-primary);
     font-weight: bold;
+}
+
+.block-queue-right {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.block-queue-category {
+    font-size: var(--font-size-xs);
+    color: var(--color-bg);
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-weight: bold;
+}
+
+.block-queue-day {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    background-color: rgba(0, 212, 255, 0.1);
+    padding: 2px 8px;
+    border-radius: 3px;
 }
 
 .block-queue-number {
@@ -470,6 +519,41 @@ body {
 .progress-value {
     color: var(--color-text-secondary);
     font-weight: bold;
+}
+
+/* ============================================================================
+   QUOTE PANEL
+   ============================================================================ */
+
+.quote-panel .panel-content {
+    padding: var(--spacing-lg);
+}
+
+.quote-container {
+    position: relative;
+    display: flex;
+    align-items: start;
+    gap: var(--spacing-sm);
+}
+
+.quote-text {
+    flex: 1;
+    font-size: var(--font-size-base);
+    color: var(--color-text-primary);
+    line-height: 1.8;
+    font-style: italic;
+    padding: var(--spacing-sm);
+    border-left: 3px solid var(--color-border-accent);
+    padding-left: var(--spacing-md);
+}
+
+.quote-edit-btn {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.quote-container:hover .quote-edit-btn {
+    opacity: 1;
 }
 
 /* ============================================================================
