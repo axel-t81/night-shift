@@ -511,6 +511,7 @@ body {
     justify-content: space-between;
     font-size: var(--font-size-sm);
 }
+git rm --cached night_shift.db
 
 .progress-label {
     color: var(--color-text-muted);

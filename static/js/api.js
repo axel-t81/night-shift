@@ -432,7 +432,15 @@ const TaskAPI = {
 window.API = {
     Category: CategoryAPI,
     Block: BlockAPI,
-    Task: TaskAPI
+    Task: TaskAPI,
+    Quote: {
+        async getLatest() {
+            return request('/quotes/latest');
+        },
+        async create(text) {
+            return request('/quotes', 'POST', { text });
+        }
+    }
 };
 
 console.log('✓ API Client loaded');

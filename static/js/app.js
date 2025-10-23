@@ -327,14 +327,20 @@ async function loadCategories() {
 /**
  * Load and display the saved quote
  */
-function loadQuote() {
-    const savedQuote = localStorage.getItem('inspirationalQuote');
-    const defaultQuote = 'The only way to do great work is to love what you do.';
-    const quote = savedQuote || defaultQuote;
-    
-    const quoteElement = document.getElementById('quote-text');
-    if (quoteElement) {
-        quoteElement.textContent = quote;
+async function loadQuote() {
+    const defaultQuote = 'Enter your message or quote of inspiration here.';
+    try {
+        const latest = await API.Quote.getLatest();
+        const quoteElement = document.getElementById('quote-text');
+        if (quoteElement) {
+            quoteElement.textContent = latest.text || defaultQuote;
+        }
+    } catch (e) {
+        // If no quote or API fails, fall back to default
+        const quoteElement = document.getElementById('quote-text');
+        if (quoteElement) {
+            quoteElement.textContent = defaultQuote;
+        }
     }
 }
 
@@ -353,7 +359,7 @@ function saveQuote(newQuote) {
  * Show the edit quote modal
  */
 function showEditQuoteModal() {
-    const currentQuote = localStorage.getItem('inspirationalQuote') || 'The only way to do great work is to love what you do.';
+    const currentQuote = localStorage.getItem('inspirationalQuote') || 'Enter your message or quote of inspiration here.';
     
     // Pre-fill the textarea with current quote
     document.getElementById('input-quote-text').value = currentQuote;
@@ -385,7 +391,8 @@ async function handleSaveQuote() {
     }
     
     try {
-        saveQuote(newQuote);
+        await API.Quote.create(newQuote);
+        await loadQuote();
         hideQuoteModal();
     } catch (error) {
         console.error('Error saving quote:', error);

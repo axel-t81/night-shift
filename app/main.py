@@ -23,7 +23,7 @@ from app.api import api_router
 
 # Import database setup to ensure tables are created
 from app.database import engine, Base
-from app.models import block, category, task  # Import models to register them with Base
+from app.models import block, category, task, quote  # Import models to register them with Base
 
 
 # Create database tables if they don't exist
