@@ -62,7 +62,7 @@ def get_all_blocks(
     
     # Apply ordering
     if order_by == "block_number":
-        query = query.order_by(Block.block_number)
+        query = query.order_by(Block.day_number, Block.block_number)
     else:
         query = query.order_by(Block.created_at)
     
@@ -125,20 +125,10 @@ def create_block(db: Session, block: BlockCreate) -> Optional[Block]:
         if not category:
             return None
     
-    # If block_number not provided, set to next available number
-    if block.block_number is None:
-        max_block_number = db.query(func.max(Block.block_number)).scalar()
-        if max_block_number is not None:
-            block_number = max_block_number + 1
-        else:
-            block_number = 1
-    else:
-        block_number = block.block_number
-    
     db_block = Block(
         title=block.title,
         description=block.description,
-        block_number=block_number,
+        block_number=block.block_number,
         day_number=block.day_number,
         category_id=block.category_id
     )
@@ -445,8 +435,8 @@ def get_active_blocks(db: Session, day_number: Optional[int] = None) -> List[Blo
     if day_number:
         query = query.filter(Block.day_number == day_number)
     
-    # Order by block_number
-    return query.order_by(Block.block_number).all()
+    # Order by day number, then block number
+    return query.order_by(Block.day_number, Block.block_number).all()
 
 
 def get_next_block(db: Session) -> Optional[Dict]:
@@ -477,7 +467,7 @@ def get_next_block(db: Session) -> Optional[Dict]:
     # Find the block with the lowest block_number from the combined set
     block = db.query(Block).filter(
         Block.id.in_(db.query(block_ids_subquery))
-    ).order_by(Block.block_number).first()
+    ).order_by(Block.day_number, Block.block_number).first()
     
     if not block:
         return None

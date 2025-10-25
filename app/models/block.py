@@ -13,8 +13,8 @@ class Block(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     title = Column(String(200), nullable=False)
     description = Column(String(200), nullable=True)
-    block_number = Column(Integer, nullable=True)  # Order within a day
     day_number = Column(Integer, nullable=True)    # Which day in the schedule (1-5)
+    block_number = Column(Integer, nullable=True)  # Order within a day
     category_id = Column(String, ForeignKey("categories.id", ondelete="CASCADE"), nullable=True)  # Category for this block
     created_at = Column(DateTime, default=datetime.utcnow)
     last_completed_at = Column(DateTime, nullable=True)

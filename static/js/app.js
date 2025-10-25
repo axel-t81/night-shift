@@ -505,7 +505,6 @@ function renderBlockQueue() {
                         <div class="block-queue-number">#${block.block_number || '?'}</div>
                     </div>
                 </div>
-                ${block.description ? `<div class="block-queue-info">${escapeHtml(block.description)}</div>` : ''}
             </div>
         `;
     }).join('');
@@ -538,12 +537,12 @@ function renderBlockInfo() {
         </div>
         ` : ''}
         <div class="stat-row">
-            <span class="stat-name">Block #:</span>
-            <span class="stat-data">${block.block_number || 'N/A'}</span>
-        </div>
-        <div class="stat-row">
             <span class="stat-name">Day:</span>
             <span class="stat-data">${block.day_number || 'N/A'}</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-name">Block #:</span>
+            <span class="stat-data">${block.block_number || 'N/A'}</span>
         </div>
         <div class="stat-row">
             <span class="stat-name">Created:</span>
@@ -1014,19 +1013,29 @@ function hideBlockModal() {
 async function handleAddBlock() {
     const titleInput = document.getElementById('input-block-title');
     const descriptionInput = document.getElementById('input-block-description');
-    const blockNumberInput = document.getElementById('input-block-number');
     const dayNumberInput = document.getElementById('input-block-day-number');
+    const blockNumberInput = document.getElementById('input-block-number');
     const categorySelect = document.getElementById('input-block-category');
     
     const title = titleInput.value.trim();
     const description = descriptionInput.value.trim() || null;
-    const blockNumber = blockNumberInput.value ? parseInt(blockNumberInput.value) : null;
     const dayNumber = dayNumberInput.value ? parseInt(dayNumberInput.value) : null;
+    const blockNumber = blockNumberInput.value ? parseInt(blockNumberInput.value) : null;
     const categoryId = categorySelect.value || null;
     
     // Validate required fields
     if (!title) {
         showNotification('Block title is required', 'error');
+        return;
+    }
+
+    if (!blockNumber) {
+        showNotification('Block number is required', 'error');
+        return;
+    }
+
+    if (!dayNumber) {
+        showNotification('Day number is required', 'error');
         return;
     }
     
@@ -1037,8 +1046,8 @@ async function handleAddBlock() {
         // Add fields to update (only changed fields for edit)
         if (title) blockData.title = title;
         if (description !== null) blockData.description = description;
-        if (blockNumber !== null) blockData.block_number = blockNumber;
         if (dayNumber !== null) blockData.day_number = dayNumber;
+        if (blockNumber !== null) blockData.block_number = blockNumber;
         if (categoryId !== null) blockData.category_id = categoryId;
         
         if (AppState.blockModalMode === 'edit' && AppState.editingBlock) {
@@ -1092,8 +1101,8 @@ async function handleEditBlock(blockId) {
         // Pre-fill the form
         document.getElementById('input-block-title').value = block.title || '';
         document.getElementById('input-block-description').value = block.description || '';
-        document.getElementById('input-block-number').value = block.block_number || '';
         document.getElementById('input-block-day-number').value = block.day_number || '';
+        document.getElementById('input-block-number').value = block.block_number || '';
         
         // Populate category dropdown first
         populateBlockCategoryDropdown();
@@ -1252,14 +1261,14 @@ async function populateTaskBlockDropdown() {
         // Fetch all blocks
         const blocks = await API.Block.getAll();
         
-        // Sort by block_number
-        blocks.sort((a, b) => (a.block_number || 0) - (b.block_number || 0));
+        // Sort by day_number, then block_number
+        blocks.sort((a, b) => (a.day_number || 0) - (b.day_number || 0) || (a.block_number || 0) - (b.block_number || 0));
         
         // Add blocks to dropdown
         blocks.forEach(block => {
             const option = document.createElement('option');
             option.value = block.id;
-            option.textContent = `#${block.block_number || '?'} - ${block.title}`;
+            option.textContent = `Day ${block.day_number || '?'} | #${block.block_number || '?'} - ${block.title}`;
             select.appendChild(option);
         });
         
