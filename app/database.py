@@ -1,24 +1,24 @@
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
 import os
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
 
-# Database URL - defaults to SQLite for local development
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./night_shift.db")
+# New database connection logic for Cloud Run and Cloud SQL
+db_user = os.environ.get("DB_USER")
+db_pass = os.environ.get("DB_PASS")
+db_name = os.environ.get("DB_NAME")
+db_host = os.environ.get("DB_HOST") # This will be the private IP of the Cloud SQL instance
 
-# SQLite specific: enable foreign key constraints
-connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+# The DATABASE_URL will be constructed from environment variables
+# Format for PostgreSQL: postgresql://<user>:<password>@<host>/<dbname>
+DATABASE_URL = f"postgresql://{db_user}:{db_pass}@{db_host}/{db_name}" if db_user else os.getenv("DATABASE_URL", "sqlite:///./night_shift.db")
 
-engine = create_engine(
-    DATABASE_URL,
-    connect_args=connect_args
-)
+engine = create_engine(DATABASE_URL)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
-# Dependency for FastAPI routes
 def get_db():
     db = SessionLocal()
     try:

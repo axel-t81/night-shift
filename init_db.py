@@ -4,6 +4,9 @@ Run this to create all tables in the database
 """
 from app.database import engine, Base
 from app.models import Category, Block, Task, Quote
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def init_database():
     """Create all tables in the database"""
