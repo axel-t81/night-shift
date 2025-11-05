@@ -28,7 +28,7 @@ from app.models import block, category, task, quote  # Import models to register
 
 # Create database tables if they don't exist
 # This is useful for development, but in production you'd use migrations (Alembic)
-Base.metadata.create_all(bind=engine)
+# Base.metadata.create_all(bind=engine) # This line is removed as per the edit hint
 
 
 # Initialize FastAPI application with metadata
