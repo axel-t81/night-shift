@@ -40,6 +40,10 @@ app = FastAPI(
     redoc_url="/redoc"  # ReDoc at /redoc
 )
 
+# Add this health check endpoint
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
 
 # Configure CORS (Cross-Origin Resource Sharing)
 # This allows the frontend to make requests to the API from different origins
