@@ -7,21 +7,43 @@ from sqlalchemy.ext.declarative import declarative_base
 db_user = os.environ.get("DB_USER")
 db_pass = os.environ.get("DB_PASS")
 db_name = os.environ.get("DB_NAME")
-db_host = os.environ.get("DB_HOST")  # This will be a path in Cloud Run
+db_host = os.environ.get("DB_HOST")  # Can be host or Unix socket path
+db_port = os.environ.get("DB_PORT", "5432")
+instance_connection_name = os.environ.get("INSTANCE_CONNECTION_NAME")
+db_socket_dir = os.environ.get("DB_SOCKET_DIR", "/cloudsql")
+
+database_url_env = os.environ.get("DATABASE_URL")
+sqlite_fallback = os.environ.get("SQLITE_PATH", "sqlite:///./night_shift.db")
 
 DATABASE_URL = None
 
-# If the DB_HOST is a path (i.e., we are in Cloud Run), format the URL
-# for a Unix socket connection.
-if db_host and db_host.startswith("/cloudsql"):
-    DATABASE_URL = (
-        f"postgresql+psycopg2://{db_user}:{db_pass}@/{db_name}"
-        f"?host={db_host}"
-    )
+# Preference order:
+# 1. Full DATABASE_URL (explicit override)
+# 2. Cloud SQL Unix socket connection
+# 3. Direct TCP Postgres connection
+# 4. SQLite fallback (development)
+if database_url_env:
+    DATABASE_URL = database_url_env
 else:
-    # Otherwise, for local development, use the full DATABASE_URL from the .env file
-    # or fall back to SQLite if it's not set.
-    DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./night_shift.db")
+    unix_socket_host = None
+
+    if instance_connection_name:
+        unix_socket_host = os.path.join(db_socket_dir, instance_connection_name)
+
+    if db_host and db_host.startswith("/cloudsql"):
+        unix_socket_host = db_host
+
+    if unix_socket_host and db_user and db_pass and db_name:
+        DATABASE_URL = (
+            f"postgresql+psycopg2://{db_user}:{db_pass}@/{db_name}"
+            f"?host={unix_socket_host}"
+        )
+    elif db_user and db_pass and db_name and db_host:
+        DATABASE_URL = (
+            f"postgresql+psycopg2://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
+        )
+    else:
+        DATABASE_URL = sqlite_fallback
 
 # Use connect_args for SQLite, but not for PostgreSQL
 connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}

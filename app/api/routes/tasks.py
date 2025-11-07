@@ -49,7 +49,7 @@ router = APIRouter()
 # STANDARD CRUD OPERATIONS
 # ============================================================================
 
-@router.get("/", response_model=List[Task])
+@router.get("", response_model=List[Task])
 def list_tasks(
     skip: int = Query(0, ge=0, description="Number of records to skip for pagination"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
@@ -132,7 +132,7 @@ def get_task(
     return task
 
 
-@router.post("/", response_model=Task, status_code=201)
+@router.post("", response_model=Task, status_code=201)
 def create_task(
     task: TaskCreate,
     db: Session = Depends(get_db)

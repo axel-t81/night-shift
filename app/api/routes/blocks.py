@@ -225,7 +225,7 @@ def reorder_blocks(
 # STANDARD CRUD OPERATIONS
 # ============================================================================
 
-@router.get("/", response_model=List[Block])
+@router.get("", response_model=List[Block])
 def list_blocks(
     skip: int = Query(0, ge=0, description="Number of records to skip for pagination"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
@@ -357,7 +357,7 @@ def get_block_with_tasks(
     }
 
 
-@router.post("/", response_model=Block, status_code=201)
+@router.post("", response_model=Block, status_code=201)
 def create_block(
     block: BlockCreate,
     db: Session = Depends(get_db)

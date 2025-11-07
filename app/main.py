@@ -151,6 +151,16 @@ async def startup_event():
     - Logging startup information
     """
     print("🚀 Night Shift App API is starting...")
+    
+    # Create database tables with error handling
+    # This prevents the app from crashing if DB connection isn't ready immediately
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("✅ Database tables created/verified successfully")
+    except Exception as e:
+        print(f"⚠️  Database initialization error: {e}")
+        print("   App will continue - tables might already exist or DB might be temporarily unavailable")
+    
     print("📚 API Documentation available at /docs")
     print("🔄 API endpoints available at /api/*")
 

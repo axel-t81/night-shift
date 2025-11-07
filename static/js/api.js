@@ -12,12 +12,13 @@
 // =============================================================================
 
 const API_CONFIG = {
-    baseURL: '/api',  // Relative URL since frontend is served by same server
-    timeout: 10000,   // 10 second timeout
+    baseURL: 'https://night-shift-app-136869881875.us-central1.run.app/api',
+    timeout: 10000,
     headers: {
         'Content-Type': 'application/json',
     }
 };
+
 
 // =============================================================================
 // Helper Functions

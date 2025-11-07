@@ -148,3 +148,18 @@ DATABASE_URL=sqlite:///./night_shift.db
 # DATABASE_URL=postgresql://user:password@host:port/dbname
 ```
 
+### Cloud Run + Cloud SQL Configuration
+
+When deploying to Cloud Run with a Cloud SQL (PostgreSQL) instance, configure the service with the following environment variables:
+
+- `DB_USER` – Database user
+- `DB_PASS` – Database password
+- `DB_NAME` – Database name
+- `INSTANCE_CONNECTION_NAME` – Cloud SQL instance connection name (e.g., `project:region:instance`)
+- `DB_SOCKET_DIR` *(optional)* – Defaults to `/cloudsql`; override if you mount the socket elsewhere
+- `DB_PORT` *(optional)* – Defaults to `5432`
+
+Alternatively, you can set `DB_HOST` directly to a Unix socket path (e.g., `/cloudsql/project:region:instance`) or provide a full `DATABASE_URL` if you prefer TCP connections.
+
+Remember to enable the Cloud SQL connection on your Cloud Run service (with `--add-cloudsql-instances` or via the console) so the Unix socket becomes available inside the container.
+

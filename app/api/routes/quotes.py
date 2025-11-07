@@ -18,7 +18,7 @@ def read_latest_quote(db: Session = Depends(get_db)) -> Any:
     return quote
 
 
-@router.post("/", response_model=QuoteSchema)
+@router.post("", response_model=QuoteSchema)
 def create_new_quote(quote_in: QuoteCreate, db: Session = Depends(get_db)) -> Any:
     quote = create_quote(db, quote_in)
     return quote
