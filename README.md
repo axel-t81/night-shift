@@ -1,165 +1,129 @@
 # Night Shift App
 
-A personal productivity web app for tracking night shift pomodoro blocks and tasks based on Xiaoyu's study plan.
+Night Shift App is a Bloomberg Terminal–styled productivity companion built for recurring night-shift study sessions. Track categories, schedule recurring work blocks, and manage every task in a loopable queue—all from a single page backed by a fully documented FastAPI service layer.
 
-## Tech Stack
+## Highlights
 
-- **Frontend**: HTML, CSS, Vanilla JavaScript
-- **Backend**: Python with FastAPI
-- **Database**: SQLite (local) → PostgreSQL (production on Cloud Run)
-- **ORM**: SQLAlchemy
+- **Recurring block engine** – Complete a block, reset its tasks, and automatically push it to the end of the queue.
+- **Bloomberg-inspired UI** – Pure HTML/CSS/vanilla JS with live status, toast notifications, and a focus tracker panel.
+- **Full REST API** – 34 endpoints covering categories, blocks, tasks, queue management, and statistics.
+- **Cloud-native ready** – Deployable to Cloud Run with PostgreSQL while retaining SQLite for local development.
 
-## Project Structure
+## Architecture
+
+```
+Frontend (index.html + static assets)
+        │
+FastAPI application (app.main)
+        │
+Services layer (business logic)
+        │
+SQLAlchemy models ↔ Database (SQLite or PostgreSQL)
+```
+
+Project layout:
 
 ```
 app/
-├── models/          # SQLAlchemy ORM models (✓ implemented)
-├── schemas/         # Pydantic validation schemas (✓ implemented)
-├── services/        # Business logic layer
-└── api/             # FastAPI routes
-
-static/              # Frontend assets
-templates/           # HTML templates
+├── api/        # FastAPI routers
+├── services/   # Business logic
+├── schemas/    # Pydantic models
+├── models/     # SQLAlchemy ORM
+├── main.py     # FastAPI entrypoint
+└── ...
+static/         # CSS, JS
+templates/      # index.html
 ```
 
-## Setup
+## Getting Started
 
-### 1. Install Dependencies
+### Prerequisites
+- Python 3.11+
+- pip / virtualenv (recommended)
 
+### 1. Install dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Initialize Database
-
+### 2. Initialize the database
 ```bash
 python init_db.py
 ```
+Creates `night_shift.db` with `categories`, `blocks`, `tasks`, and `quotes` tables. Use SQLite locally; override `DATABASE_URL` for PostgreSQL.
 
-This creates a SQLite database (`night_shift.db`) with the following tables:
-- `categories` - Project/category organization
-- `blocks` - Time blocks for pomodoro sessions
-- `tasks` - Individual tasks within blocks
-
-### 3. Run the API Server
-
+### 3. Run the application
 ```bash
 uvicorn app.main:app --reload
 ```
 
-The API will be available at:
-- **API Base**: `http://localhost:8000/api`
-- **Interactive Docs**: `http://localhost:8000/docs` (Swagger UI)
-- **Alternative Docs**: `http://localhost:8000/redoc` (ReDoc)
-- **Health Check**: `http://localhost:8000/health`
+Endpoints:
+- Web app: `http://localhost:8000/app`
+- REST API base: `http://localhost:8000/api`
+- Interactive docs: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
+- Health check: `http://localhost:8000/health`
 
-### 4. Open the Frontend
+### 4. Optional: preload sample data
+Use the interactive docs or `init_db.py` to seed categories, blocks, tasks, and motivational quotes.
 
-Navigate to: `http://localhost:8000/app`
+## Everyday Workflow
 
-## Behavior Notes
+1. Launch the app to see the **Focus Tracker** and the highest-priority block.
+2. Expand the block queue, review block details, and manage tasks from the right sidebar.
+3. Check/uncheck tasks to record progress; completion timestamps and statistics update instantly.
+4. Use **Complete & Reset Block** to roll the block to the end of the queue with all tasks reset.
+5. Capture a daily intention in the quote panel and keep distractions in check with the focus tracker.
 
-- **Block numbering**: Blocks are numbered sequentially (auto-assigned if not specified).
-- **Delete confirmation**: Category deletions use an in-app confirmation modal (no browser dialogs).
-- **Quick Actions panel**: Located between Statistics and Categories panels with "+ Add Block" and "+ Add Category" buttons.
+## Key Features
 
-## Usage
+- Category color coding with task counts
+- Real-time block queue with edit/delete shortcuts
+- Toast notifications and footer clock
+- Bulk and per-task completion API endpoints
+- Block cloning, reordering, and statistics
+- Focus tracker panel with customizable checklists
 
-### First Time Setup
+## Deployment
 
-1. **Create Categories** (e.g., "Deep Work", "Learning", "Exercise")
-   - Use the "Add Category" button in the sidebar
-   - Assign colors for visual organization
+Night Shift App runs containerized in Cloud Run with Cloud SQL:
 
-2. **Create Blocks** (your work blocks for organizing tasks)
-   - Use the "Add Block" button in the Quick Actions panel
-   - Set title, optional description, and block_number (for ordering)
+```bash
+PROJECT_ID=your-gcp-project
+REGION=us-central1
+IMAGE=gcr.io/$PROJECT_ID/night-shift-app:$(date +%Y%m%d%H%M)
 
-3. **Create Tasks** (within blocks)
-   - Use the API docs to create tasks
-   - Assign to a block and category
-   - Set estimated minutes
+docker build -t $IMAGE .
+docker push $IMAGE
 
-### Daily Workflow
+gcloud run deploy night-shift-app \
+  --image $IMAGE \
+  --region $REGION \
+  --platform managed \
+  --allow-unauthenticated \
+  --add-cloudsql-instances $INSTANCE_CONNECTION_NAME
+```
 
-1. **Open the app** - See your "Next Block" prominently displayed
-2. **Complete tasks** - Click checkboxes as you finish each task
-3. **Monitor progress** - Watch the progress bar update
-4. **Complete block** - When done, click "Complete & Reset Block"
-5. **Automatic cycle** - Block moves to end, next block loads automatically
-6. **Repeat** - Continue through your night shift! 🌙
-
-## Data Model
-
-### Category
-- Organizes tasks by project/topic
-- Has name and optional color
-
-### Block
-- Category-agnostic container for organizing tasks
-- Has title, optional description, block number (ordering), day number (1-5)
-- Contains multiple tasks
-
-### Task
-- Belongs to one block and one category
-- Tracks estimated vs actual minutes
-- Has completion status and timestamp
-- Position determines order within block
-
-## Services Layer
-
-The services layer provides business logic for recurring blocks:
-
-### Key Features
-- **Recurring Blocks**: Blocks can be completed and reset to repeat indefinitely
-- **Queue Management**: Blocks ordered by `block_number`, completed blocks move to end
-- **Progress Tracking**: Get completion statistics for blocks and categories
-- **Block Cloning**: Create copies of blocks with all their tasks
-
-### Core Functions
-- `complete_and_reset_block()` - Complete all tasks, reset them, move block to end
-- `reset_block_tasks()` - Reset all tasks in a block to incomplete
-- `move_block_to_end()` - Move a block to the back of the queue
-- `clone_block()` - Create a copy of a block with its tasks
-
-See [SERVICES_LAYER_GUIDE.md](./SERVICES_LAYER_GUIDE.md) for detailed documentation.
-
-## Development Status
-
-- [x] Models Layer - Database schema with SQLAlchemy
-- [x] Schemas Layer - Pydantic validation
-- [x] Services Layer - Business logic with recurring blocks support
-- [x] API Layer - RESTful endpoints (34 endpoints implemented)
-- [x] Frontend - Bloomberg Terminal-styled UI (HTML/CSS/JS)
-
-## Documentation
-
-- **[SERVICES_LAYER_GUIDE.md](./SERVICES_LAYER_GUIDE.md)** - Services layer and recurring blocks
-- **[API_LAYER_GUIDE.md](./API_LAYER_GUIDE.md)** - API endpoints documentation
-- **[FRONTEND_GUIDE.md](./FRONTEND_GUIDE.md)** - Frontend implementation guide
-
-## Environment Variables
-
-Create a `.env` file:
+Configure environment variables via Cloud Run (or `.env` locally):
 
 ```env
 DATABASE_URL=sqlite:///./night_shift.db
-# For production:
-# DATABASE_URL=postgresql://user:password@host:port/dbname
+# Production example:
+# DATABASE_URL=postgresql+pg8000://user:password@/dbname?unix_sock=/cloudsql/project:region:instance/.s.PGSQL.5432
 ```
 
-### Cloud Run + Cloud SQL Configuration
+## Documentation Suite
 
-When deploying to Cloud Run with a Cloud SQL (PostgreSQL) instance, configure the service with the following environment variables:
+- [`FRONTEND_GUIDE.md`](./FRONTEND_GUIDE.md) – Layout, styling system, and UI flows.
+- [`API_LAYER_GUIDE.md`](./API_LAYER_GUIDE.md) – Endpoint catalog and usage examples.
+- [`SERVICES_LAYER_GUIDE.md`](./SERVICES_LAYER_GUIDE.md) – Business logic and recurring block design.
+- Swagger / ReDoc – Self-documenting API references at `/docs` and `/redoc`.
 
-- `DB_USER` – Database user
-- `DB_PASS` – Database password
-- `DB_NAME` – Database name
-- `INSTANCE_CONNECTION_NAME` – Cloud SQL instance connection name (e.g., `project:region:instance`)
-- `DB_SOCKET_DIR` *(optional)* – Defaults to `/cloudsql`; override if you mount the socket elsewhere
-- `DB_PORT` *(optional)* – Defaults to `5432`
+## Maintenance Notes
 
-Alternatively, you can set `DB_HOST` directly to a Unix socket path (e.g., `/cloudsql/project:region:instance`) or provide a full `DATABASE_URL` if you prefer TCP connections.
+- The services layer encapsulates all database writes—use it in new endpoints to keep business rules consistent.
+- CORS is open for development; restrict `allow_origins` before deploying.
+- Run `pytest` (tests folder) before shipping significant API changes.
+- Update the focus tracker labels or count via `FOCUS_MODAL_OPTIONS` in `static/js/app.js`.
 
-Remember to enable the Cloud SQL connection on your Cloud Run service (with `--add-cloudsql-instances` or via the console) so the Unix socket becomes available inside the container.
-
+Night Shift App is production-ready and built for steady, repeatable deep-work sessions. Enjoy the night shift. 🌙

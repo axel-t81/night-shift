@@ -28,6 +28,16 @@ const AppState = {
     editingTask: null          // Task being edited (when in edit mode)
 };
 
+const FOCUS_MODAL_ID = 'focus-tracker-modal';
+const FOCUS_MODAL_STYLE_ID = 'focus-tracker-modal-styles';
+const FOCUS_MODAL_OPTIONS = [
+    { id: 'focus-checkbox-1', label: 'Phone, Lights, Ambience' },
+    { id: 'focus-checkbox-2', label: 'Track Date & Gap' },
+    { id: 'focus-checkbox-3', label: '12-min Warm Up' },
+    { id: 'focus-checkbox-4', label: 'Quick Amp Up' },
+    { id: 'focus-checkbox-5', label: '12-min Cool Down' }
+];
+
 // =============================================================================
 // Initialization
 // =============================================================================
@@ -41,6 +51,10 @@ async function init() {
     
     // Set up event listeners
     setupEventListeners();
+
+    // Add focus modal styles & UI
+    injectFocusModalStyles();
+    renderFocusModal();
     
     // Start clock
     updateClock();
@@ -432,6 +446,125 @@ async function selectBlock(blockId) {
 // =============================================================================
 // UI Rendering Functions
 // =============================================================================
+
+/**
+ * Inject styles specific to the focus modal panel
+ */
+function injectFocusModalStyles() {
+    if (document.getElementById(FOCUS_MODAL_STYLE_ID)) {
+        return;
+    }
+
+    const style = document.createElement('style');
+    style.id = FOCUS_MODAL_STYLE_ID;
+    style.textContent = `
+        #${FOCUS_MODAL_ID} {
+            width: 100%;
+            margin: 0 0 16px;
+            border: 1px solid var(--color-border-accent);
+            box-shadow: 0 0 12px rgba(51, 255, 51, 0.18);
+            background: linear-gradient(135deg, rgba(10, 10, 10, 0.95), rgba(20, 20, 20, 0.85));
+        }
+
+        #${FOCUS_MODAL_ID} .panel-title {
+            text-align: center;
+            margin-bottom: 0;
+        }
+
+        #${FOCUS_MODAL_ID} .panel-content {
+            padding: 14px 24px;
+        }
+
+        .focus-modal-content {
+            display: flex;
+            justify-content: space-evenly;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .focus-modal-option {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            text-align: center;
+            flex: 1;
+        }
+
+        .focus-modal-option.with-divider {
+            border-left: 1px solid var(--color-border-accent);
+            padding-left: 8px;
+            margin-left: 8px;
+        }
+
+        .focus-modal-checkbox {
+            width: 22px;
+            height: 22px;
+            border: 2px solid var(--color-border-accent);
+            border-radius: 4px;
+            background: var(--color-bg-card);
+            cursor: pointer;
+            accent-color: var(--color-text-primary);
+        }
+
+        .focus-modal-label {
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--color-text-secondary);
+        }
+
+        @media (max-width: 768px) {
+            .focus-modal-content {
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 12px 24px;
+            }
+            
+            .focus-modal-option.with-divider {
+                border-left: none;
+                padding-left: 0;
+                margin-left: 0;
+            }
+        }
+    `;
+
+    document.head.appendChild(style);
+}
+
+/**
+ * Render the focus modal above the next block panel
+ */
+function renderFocusModal() {
+    const mainContent = document.querySelector('.main-content');
+    const nextBlockPanel = document.querySelector('.next-block-panel');
+
+    if (!mainContent || !nextBlockPanel || document.getElementById(FOCUS_MODAL_ID)) {
+        return;
+    }
+
+    const modalSection = document.createElement('section');
+    modalSection.className = 'panel focus-modal-panel';
+    modalSection.id = FOCUS_MODAL_ID;
+
+    const optionsHtml = FOCUS_MODAL_OPTIONS.map((option, index) => `
+        <div class="focus-modal-option${index === 4 ? ' with-divider' : ''}">
+            <input type="checkbox" id="${option.id}" class="focus-modal-checkbox">
+            <label for="${option.id}" class="focus-modal-label">${option.label}</label>
+        </div>
+    `).join('');
+
+    modalSection.innerHTML = `
+        <h2 class="panel-title">&gt; EUDAIMONIA MACHINE</h2>
+        <div class="panel-content">
+            <div class="focus-modal-content" role="group" aria-label="Focus tracker checkboxes">
+                ${optionsHtml}
+            </div>
+        </div>
+    `;
+
+    mainContent.insertBefore(modalSection, nextBlockPanel);
+}
 
 /**
  * Render the next block (priority block)

@@ -1,385 +1,160 @@
 # API Layer Guide
 
-## Overview
+Night Shift App exposes its business logic through a FastAPI-powered REST API. This guide captures the endpoints, behaviors, and implementation details you need for ongoing maintenance.
 
-The API Layer is now fully implemented! This layer provides RESTful endpoints that expose all service layer functionality through FastAPI.
+**Total endpoints:** 34 (categories, blocks, tasks, queue utilities, statistics)
 
-**Total Endpoints Implemented: 34**
-
-## Quick Start
-
-### 1. Start the Server
+## Quick Reference
 
 ```bash
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload  # start locally
 ```
 
-### 2. Access the API
+- API base: `http://localhost:8000/api`
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
+- Health check: `http://localhost:8000/health`
+- Frontend: `http://localhost:8000/app`
 
-- **API Base URL**: `http://localhost:8000/api`
-- **Interactive Documentation**: `http://localhost:8000/docs` (Swagger UI)
-- **Alternative Documentation**: `http://localhost:8000/redoc` (ReDoc)
-- **Health Check**: `http://localhost:8000/health`
-
-## Architecture
+## Layering
 
 ```
-Frontend → API Routes (FastAPI) → Services Layer → Models → Database
+HTTP request
+    ↓
+FastAPI router (app/api/routes)
+    ↓
+Services layer (app/services)
+    ↓
+Schemas & models (app/schemas, app/models)
+    ↓
+Database (SQLite locally, PostgreSQL in production)
 ```
 
-## API Endpoints
+Routers never talk to the ORM directly; they proxy everything through services to keep business rules in one place.
 
-### Root Endpoints
+## Endpoint Catalogue
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/` | Welcome message and API info |
-| GET | `/health` | Health check for monitoring |
-| GET | `/app` | Serve frontend HTML |
+### Root endpoints
 
----
+| Method | Path   | Purpose                          |
+|--------|--------|----------------------------------|
+| GET    | `/`    | Welcome payload with metadata    |
+| GET    | `/app` | Serves the SPA (`templates/index.html`) |
+| GET    | `/health` | Deployment/monitoring status probe |
 
-### Category Endpoints (7 endpoints)
+### Category endpoints (7)
 
-**Base Path**: `/api/categories`
+`/api/categories`
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/categories` | List all categories (paginated) |
-| GET | `/api/categories/with-tasks` | List categories with task counts |
-| GET | `/api/categories/{category_id}` | Get single category |
-| POST | `/api/categories` | Create new category |
-| PUT | `/api/categories/{category_id}` | Update category |
-| DELETE | `/api/categories/{category_id}` | Delete category |
-| GET | `/api/categories/{category_id}/stats` | Get category statistics |
+- List (with pagination + filters), retrieve, create, update, delete
+- `/with-tasks` returns counts per category
+- `/stats` surfaces completion percentage and time totals
 
-**Key Features**:
-- Pagination support (skip/limit)
-- Task count aggregation
-- Completion rate statistics
-- Time tracking per category
+### Block endpoints (14)
 
----
+`/api/blocks`
 
-### Block Endpoints (14 endpoints)
+- Full CRUD plus `/with-tasks` for hydrated payloads
+- Recurrence helpers: `/complete-and-reset`, `/reset-tasks`, `/move-to-end`, `/clone`
+- Queue utilities: `/next`, `/active`, `/reorder`, `/statistics`
+- Filters include `day_number`, ordering supports `block_number` and `created_at`
 
-**Base Path**: `/api/blocks`
+### Task endpoints (13)
 
-#### Standard CRUD (6 endpoints)
+`/api/tasks`
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/blocks` | List blocks with filters |
-| GET | `/api/blocks/{block_id}` | Get single block |
-| GET | `/api/blocks/{block_id}/with-tasks` | Get block with all tasks |
-| POST | `/api/blocks` | Create new block |
-| PUT | `/api/blocks/{block_id}` | Update block |
-| DELETE | `/api/blocks/{block_id}` | Delete block (cascades to tasks) |
+- CRUD plus completion/uncompletion, progress, and task reordering
+- Lookup routes by block or category
+- Bulk operations: `/bulk-complete`, `/bulk-uncomplete`
+- Supports pagination, completion status filtering, and position-based ordering
 
-#### Recurring Block Operations (4 endpoints)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/blocks/{block_id}/complete-and-reset` | Complete & reset for recurrence ⭐ |
-| POST | `/api/blocks/{block_id}/reset-tasks` | Reset all tasks to incomplete |
-| POST | `/api/blocks/{block_id}/move-to-end` | Move block to end of queue |
-| POST | `/api/blocks/{block_id}/clone` | Clone block with tasks |
-
-#### Queue Management (4 endpoints)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/blocks/next` | Get next block in queue |
-| GET | `/api/blocks/active` | Get blocks with incomplete tasks |
-| POST | `/api/blocks/reorder` | Reorder multiple blocks |
-| GET | `/api/blocks/statistics` | Get overall block statistics |
-
-**Key Features**:
-- Filtering by day_number (1-5)
-- Multiple ordering options (block_number, created_at)
-- Full recurring block support
-- Queue management
-- Progress tracking
-
----
-
-### Task Endpoints (13 endpoints)
-
-**Base Path**: `/api/tasks`
-
-#### Standard CRUD (5 endpoints)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/tasks` | List tasks with filters |
-| GET | `/api/tasks/{task_id}` | Get single task |
-| POST | `/api/tasks` | Create new task |
-| PUT | `/api/tasks/{task_id}` | Update task |
-| DELETE | `/api/tasks/{task_id}` | Delete task |
-
-#### Task Operations (3 endpoints)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/tasks/{task_id}/complete` | Mark task complete |
-| POST | `/api/tasks/{task_id}/uncomplete` | Mark task incomplete |
-| POST | `/api/tasks/reorder` | Reorder tasks within block |
-
-#### Filtered Queries (3 endpoints)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/tasks/block/{block_id}` | Get all tasks in a block |
-| GET | `/api/tasks/category/{category_id}` | Get all tasks in a category |
-| GET | `/api/tasks/block/{block_id}/progress` | Get block progress |
-
-#### Bulk Operations (2 endpoints)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/tasks/bulk-complete` | Complete multiple tasks |
-| POST | `/api/tasks/bulk-uncomplete` | Uncomplete multiple tasks |
-
-**Key Features**:
-- Filtering by completed status, block, category
-- Pagination support
-- Position-based ordering
-- Automatic completion timestamp tracking
-- Bulk operations for efficiency
-
----
-
-## Example API Calls
-
-### 1. Create a Category
+## Common Request Examples
 
 ```bash
-curl -X POST "http://localhost:8000/api/categories" \
+# Create a category
+curl -X POST http://localhost:8000/api/categories \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Deep Work", "color": "#1E90FF"}'
+
+# Create a block
+curl -X POST http://localhost:8000/api/blocks \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Deep Work",
-    "color": "#1E90FF"
-  }'
-```
+        "title": "Night Study",
+        "block_number": 1,
+        "day_number": 3,
+        "description": "Focus on algorithms"
+      }'
 
-### 2. Create a Block
-
-```bash
-curl -X POST "http://localhost:8000/api/blocks" \
+# Complete a task
+curl -X POST http://localhost:8000/api/tasks/{task_id}/complete \
   -H "Content-Type: application/json" \
-  -d '{
-    "title": "Morning Deep Work",
-    "description": "Focus on coding projects",
-    "block_number": 1,
-    "day_number": 1
-  }'
-```
+  -d '{"actual_minutes": 50}'
 
-### 3. Create a Task
-
-```bash
-curl -X POST "http://localhost:8000/api/tasks" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "block_id": "your-block-uuid",
-    "category_id": "your-category-uuid",
-    "title": "Study FastAPI",
-    "description": "Read chapters 3-5",
-    "estimated_minutes": 45,
-    "position": 0
-  }'
-```
-
-### 4. Complete and Reset a Block (Recurring)
-
-```bash
+# Complete and reset a block
 curl -X POST "http://localhost:8000/api/blocks/{block_id}/complete-and-reset?move_to_end=true"
 ```
 
-### 5. Get Next Block in Queue
+## Implementation Notes
 
-```bash
-curl -X GET "http://localhost:8000/api/blocks/next"
-```
+### Validation & schemas
 
-### 6. Get Block Progress
+- Request bodies use `*Create` and `*Update` schemas.
+- Responses return full schema objects; no raw ORM instances leak out.
+- Query parameters document constraints (e.g., `day_number` is limited to 1–5).
 
-```bash
-curl -X GET "http://localhost:8000/api/tasks/block/{block_id}/progress"
-```
+### Error handling
 
-### 7. Complete a Task
+- 404 for missing resources, 400 for business rule violations.
+- FastAPI handles 422 validation responses automatically.
+- Exceptions bubble up from the services layer with clear messages.
 
-```bash
-curl -X POST "http://localhost:8000/api/tasks/{task_id}/complete" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "actual_minutes": 50
-  }'
-```
+### Database sessions
 
-### 8. Bulk Complete Tasks
-
-```bash
-curl -X POST "http://localhost:8000/api/tasks/bulk-complete" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "task_ids": ["uuid-1", "uuid-2", "uuid-3"]
-  }'
-```
-
----
-
-## Key Implementation Details
-
-### Error Handling
-
-All endpoints properly handle errors:
-- **404**: Resource not found
-- **400**: Bad request (validation errors, constraint violations)
-- **422**: Unprocessable entity (Pydantic validation errors)
-- **500**: Internal server error (database errors)
-
-### Response Models
-
-All endpoints use Pydantic schemas for type-safe responses:
-- Request bodies validated with `*Create` schemas
-- Responses validated with full schemas
-- Partial updates use `*Update` schemas
-
-### Database Sessions
-
-- All endpoints use `Depends(get_db)` for database sessions
-- Sessions automatically closed after request
-- Service layer handles commits/rollbacks
+- Every route depends on `get_db`.
+- Services commit/rollback; routers stay transaction-free.
+- Background tasks can reuse the same pattern if added later.
 
 ### Documentation
 
-Every endpoint includes:
-- Comprehensive docstrings
-- Query parameter descriptions
-- Request/response examples
-- Error status codes
-- Usage examples
+- Swagger UI is curated with docstrings, descriptions, and examples.
+- Endpoint tags group categories, blocks, tasks, and root utilities.
+- ReDoc provides a printer-friendly reference for stakeholders.
 
-### Recurring Blocks Feature
+### Recurring workflow
 
-The **complete-and-reset** endpoint is the key feature:
-1. Marks all incomplete tasks as complete
-2. Records completion timestamp
-3. Immediately resets tasks to incomplete
-4. Moves block to end of queue
-5. Returns operation summary
+`/complete-and-reset` is the heart of the recurring system:
+1. Mark incomplete tasks complete (recording timestamps).
+2. Immediately reset all tasks to incomplete.
+3. Optionally move the block to the end of the queue.
+4. Return counts for completed/reset tasks and the new queue position.
 
-This creates an infinite recurring workflow!
+## Testing via Swagger UI
 
----
+1. Start the app with `uvicorn app.main:app --reload`.
+2. Visit `http://localhost:8000/docs`.
+3. Expand any endpoint, click **Try it out**, provide parameters.
+4. Execute and inspect the live response and curl command.
 
-## Testing with Interactive Docs
-
-The best way to test the API is using the interactive documentation:
-
-1. Start the server: `uvicorn app.main:app --reload`
-2. Open browser: `http://localhost:8000/docs`
-3. Click on any endpoint to see details
-4. Click "Try it out" to test the endpoint
-5. Fill in parameters and request body
-6. Click "Execute" to send the request
-7. View the response
-
-The Swagger UI provides:
-- Full endpoint documentation
-- Request parameter forms
-- Response schema visualization
-- Example values
-- Direct execution from browser
-
----
-
-## CORS Configuration
-
-The API includes CORS middleware configured for development:
+## CORS & static assets
 
 ```python
-allow_origins=["*"]  # Accept requests from any origin
-allow_methods=["*"]  # Allow all HTTP methods
-allow_headers=["*"]  # Allow all headers
+allow_origins = ["*"]  # dev only – tighten before production deploys
 ```
 
-**For production**, restrict to your domain:
-```python
-allow_origins=["https://yourdomain.com"]
-```
+Static assets are served from `/static/*`; the SPA lives at `/app`. When deploying behind a CDN, consider moving static files to the CDN and pointing the frontend to the hosted API base.
 
----
+## Persistence
 
-## Static Files & Frontend
+- Tables are materialized on startup for local development (`Base.metadata.create_all`).
+- Production deployments should run Alembic migrations instead.
+- SQLite ships with the repo for convenience; Cloud SQL or another PostgreSQL instance is recommended for production.
 
-The API serves static files and the frontend:
+## Maintenance Checklist
 
-- **Static files**: `/static/*` → serves CSS, JavaScript, images
-- **Frontend HTML**: `/app` → serves `templates/index.html`
+- Keep FastAPI docstrings in sync when adding or modifying routes.
+- Re-run `pytest` (or your preferred suite) after expanding service logic.
+- Restrict CORS and configure authentication when exposing the API publicly.
+- Update the README and this guide alongside any breaking API change.
 
-This allows the backend and frontend to run on the same server.
-
----
-
-## Database Tables Created
-
-The API automatically creates database tables on startup:
-
-```python
-Base.metadata.create_all(bind=engine)
-```
-
-Tables:
-- `categories` - Categories/projects
-- `blocks` - Work blocks for organizing tasks
-- `tasks` - Individual tasks
-
-For production, use Alembic migrations instead.
-
----
-
-## Next Steps
-
-Now that the API layer is complete, you can:
-
-1. **Test the API**: Use the interactive docs at `/docs`
-2. **Build the Frontend**: Create HTML/CSS/JavaScript UI
-3. **Add Authentication**: Implement user login if needed
-4. **Write Tests**: Add comprehensive API tests
-5. **Deploy**: Set up Cloud Run with PostgreSQL
-
----
-
-## File Structure
-
-```
-app/
-├── main.py                    # FastAPI app initialization ✅
-├── api/
-│   ├── __init__.py           # API router registration ✅
-│   └── routes/
-│       ├── __init__.py
-│       ├── categories.py     # Category endpoints ✅
-│       ├── blocks.py         # Block endpoints ✅
-│       └── tasks.py          # Task endpoints ✅
-├── services/                  # Business logic (already implemented)
-├── schemas/                   # Pydantic schemas (already implemented)
-├── models/                    # SQLAlchemy models (already implemented)
-└── database.py               # Database setup
-```
-
----
-
-## Summary
-
-✅ **Implemented**: 34 RESTful API endpoints
-✅ **Documented**: Comprehensive docstrings and examples
-✅ **Tested**: All imports and initialization successful
-✅ **Features**: Full CRUD, recurring blocks, queue management, bulk operations
-✅ **Ready**: API is production-ready and fully functional
-
-The API Layer is complete! 🚀
-
+The API layer is stable, feature-complete, and ready for day-to-day operations.

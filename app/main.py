@@ -34,16 +34,11 @@ from app.models import block, category, task, quote  # Import models to register
 # Initialize FastAPI application with metadata
 app = FastAPI(
     title="Night Shift App",
-    description="A personal productivity web app for tracking night shift pomodoro blocks and tasks",
+    description="Bloomberg Terminal–inspired productivity dashboard with recurring block automation.",
     version="1.0.0",
     docs_url="/docs",  # Swagger UI at /docs
     redoc_url="/redoc"  # ReDoc at /redoc
 )
-
-# Add this health check endpoint
-@app.get("/health")
-def health_check():
-    return {"status": "ok"}
 
 # Configure CORS (Cross-Origin Resource Sharing)
 # This allows the frontend to make requests to the API from different origins
@@ -66,18 +61,15 @@ app.include_router(api_router, prefix="/api")
 @app.get("/", tags=["Root"])
 def read_root():
     """
-    Root endpoint that returns basic app information.
-    
-    This is useful for:
-    - Health checks
-    - Verifying the API is running
-    - Getting basic app metadata
+    Public landing payload with metadata and key URLs.
     """
     return {
-        "message": "Welcome to Night Shift App API",
+        "message": "Welcome to the Night Shift App API",
         "version": "1.0.0",
         "docs": "/docs",
-        "api_prefix": "/api"
+        "redoc": "/redoc",
+        "api_prefix": "/api",
+        "frontend": "/app"
     }
 
 
@@ -85,10 +77,7 @@ def read_root():
 @app.get("/health", tags=["Root"])
 def health_check():
     """
-    Health check endpoint for monitoring and deployment systems.
-    
-    Returns a simple status to confirm the API is running.
-    Used by Cloud Run, Kubernetes, or other deployment platforms.
+    Lightweight health probe used by Cloud Run and other monitors.
     """
     return {"status": "healthy"}
 

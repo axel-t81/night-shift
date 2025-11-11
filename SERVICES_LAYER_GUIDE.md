@@ -1,408 +1,173 @@
 # Services Layer Guide
 
-## Overview
+The services layer centralizes Night Shift App's business logic. Every FastAPI route depends on these modules to keep persistence rules, recurring workflows, and validation consistent.
 
-The Services Layer implements all business logic for the Night Shift MVP app. It sits between the API routes and the database models, providing a clean separation of concerns.
-
-## Architecture
+## Layering Overview
 
 ```
-API Routes (FastAPI)
-       ↓
-Services Layer (Business Logic)
-       ↓
-Models (SQLAlchemy ORM)
-       ↓
-Database (SQLite/PostgreSQL)
+FastAPI router → Services layer → SQLAlchemy models → Database
 ```
 
-## Services
+Services return plain Pydantic models or dictionaries ready for JSON serialization. Database sessions are injected from the API layer and passed through.
 
-### 1. Category Service (`category_service.py`)
+## Category Service (`category_service.py`)
 
-Manages categories/projects for organizing tasks.
+Purpose: organize work by project/category, expose statistics, and safeguard deletes.
 
-#### Key Functions
+### Key operations
 
-- **`get_all_categories(db, skip, limit)`** - List all categories with pagination
-- **`get_category(db, category_id)`** - Get single category by ID
-- **`create_category(db, category)`** - Create new category
-- **`update_category(db, category_id, category_update)`** - Update category
-- **`delete_category(db, category_id)`** - Delete category (fails if tasks exist)
-- **`get_category_stats(db, category_id)`** - Get task completion statistics
-- **`get_categories_with_task_counts(db)`** - List categories with task counts
+- `get_all_categories(db, skip, limit)` – paginated list of categories.
+- `get_category(db, category_id)` – retrieve a single category.
+- `create_category(db, category)` / `update_category(...)` – manage category metadata.
+- `delete_category(db, category_id)` – cascading delete guard; raises if tasks still reference the category.
+- `get_category_stats(db, category_id)` – completion rates and time totals.
+- `get_categories_with_task_counts(db)` – used by the sidebar to show workload distribution.
 
-#### Example Usage
+### Usage pattern
 
 ```python
 from app.services import category_service
 from app.schemas.category import CategoryCreate
 
-# Create a category
-category_data = CategoryCreate(name="Deep Work", color="#1E90FF")
-category = category_service.create_category(db, category_data)
+category = category_service.create_category(
+    db,
+    CategoryCreate(name="Deep Work", color="#1E90FF")
+)
 
-# Get statistics
 stats = category_service.get_category_stats(db, category.id)
-print(f"Completion rate: {stats['completion_rate']}%")
 ```
 
----
+## Task Service (`task_service.py`)
 
-### 2. Task Service (`task_service.py`)
+Purpose: manage the atomic unit of work inside a block, including completion state, ordering, and metrics.
 
-Manages individual tasks within blocks.
+### Key operations
 
-#### Key Functions
+- `get_all_tasks(db, skip, limit, completed, block_id, category_id)` – filterable list endpoint.
+- `get_task(db, task_id)` – single task retrieval.
+- `create_task`, `update_task`, `delete_task` – CRUD.
+- `complete_task(db, task_id, actual_minutes)` / `uncomplete_task` – toggles completion, timestamps actuals.
+- `reorder_tasks(db, task_positions)` – bulk position update for drag-and-drop UI.
+- `get_block_progress(db, block_id)` – completion percentage, counts, estimated vs actual totals.
+- `bulk_complete_tasks` / `bulk_uncomplete_tasks` – efficient operations for multi-select flows.
 
-- **`get_all_tasks(db, skip, limit, completed, block_id, category_id)`** - List tasks with filtering
-- **`get_task(db, task_id)`** - Get single task by ID
-- **`get_tasks_by_block(db, block_id)`** - Get all tasks in a block (ordered by position)
-- **`get_tasks_by_category(db, category_id)`** - Get all tasks in a category
-- **`create_task(db, task)`** - Create new task
-- **`update_task(db, task_id, task_update)`** - Update task
-- **`delete_task(db, task_id)`** - Delete task
-- **`complete_task(db, task_id, actual_minutes)`** - Mark task complete
-- **`uncomplete_task(db, task_id)`** - Mark task incomplete
-- **`reorder_tasks(db, task_positions)`** - Update positions for drag-and-drop
-- **`get_block_progress(db, block_id)`** - Get completion progress for a block
-- **`bulk_complete_tasks(db, task_ids)`** - Complete multiple tasks
-- **`bulk_uncomplete_tasks(db, task_ids)`** - Uncomplete multiple tasks
-
-#### Example Usage
+### Usage pattern
 
 ```python
 from app.services import task_service
 from app.schemas.task import TaskCreate
 
-# Create a task
-task_data = TaskCreate(
-    block_id="block-uuid",
-    category_id="category-uuid",
-    title="Study FastAPI",
-    estimated_minutes=45,
-    position=0
+task = task_service.create_task(
+    db,
+    TaskCreate(
+        block_id=block.id,
+        category_id=category.id,
+        title="Study FastAPI",
+        estimated_minutes=45,
+        position=0
+    )
 )
-task = task_service.create_task(db, task_data)
 
-# Complete the task
-completed_task = task_service.complete_task(db, task.id, actual_minutes=50)
-
-# Get block progress
-progress = task_service.get_block_progress(db, "block-uuid")
-print(f"Block is {progress['completion_percentage']}% complete")
+task_service.complete_task(db, task.id, actual_minutes=50)
+progress = task_service.get_block_progress(db, block.id)
 ```
 
----
+## Block Service (`block_service.py`)
 
-### 3. Block Service (`block_service.py`)
+Purpose: orchestrate recurring blocks, queue positioning, statistics, and aggregation of tasks.
 
-Manages blocks (task containers) with **special recurring block support**.
+### Core CRUD
 
-#### Key Functions
+- `get_all_blocks(db, skip, limit, day_number, order_by)` – browsing/filtering.
+- `get_block(db, block_id)` and `get_block_with_tasks(db, block_id)` – detail views.
+- `create_block`, `update_block`, `delete_block` – block lifecycle management.
 
-##### Basic CRUD
-- **`get_all_blocks(db, skip, limit, day_number, order_by)`** - List blocks with filtering
-- **`get_block(db, block_id)`** - Get single block by ID
-- **`get_block_with_tasks(db, block_id)`** - Get block with all its tasks
-- **`create_block(db, block)`** - Create new block
-- **`update_block(db, block_id, block_update)`** - Update block
-- **`delete_block(db, block_id)`** - Delete block and its tasks
+### Recurring workflow
 
-##### Recurring Block Functions 🔄
-- **`reset_block_tasks(db, block_id)`** - Reset all tasks in a block to incomplete
-- **`move_block_to_end(db, block_id)`** - Move block to end of queue
-- **`complete_and_reset_block(db, block_id, move_to_end)`** - **KEY FUNCTION** for recurring blocks
-- **`clone_block(db, block_id, copy_tasks)`** - Create copy of block with tasks
+- `complete_and_reset_block(db, block_id, move_to_end)` – flagship recurrence helper:
+  1. Marks any remaining tasks complete (recording timestamps).
+  2. Resets all tasks to incomplete for the next cycle.
+  3. Optionally pushes the block to the end of the queue.
+  4. Returns counts and the new queue position.
 
-##### Queue Management
-- **`reorder_blocks(db, block_orders)`** - Update block ordering
-- **`get_active_blocks(db, day_number)`** - Get blocks with incomplete tasks
-- **`get_next_block(db)`** - Get next block in queue
-- **`get_block_statistics(db)`** - Get overall block statistics
+- `reset_block_tasks(db, block_id)` – reset without completion logging.
+- `move_block_to_end(db, block_id)` – manual queue adjustment.
+- `clone_block(db, block_id, copy_tasks)` – create a template-derived copy.
 
----
+### Queue & analytics
 
-## Recurring Blocks - How It Works
+- `reorder_blocks(db, block_orders)` – bulk renumbering for drag-and-drop.
+- `get_active_blocks(db, day_number)` – blocks with outstanding tasks.
+- `get_next_block(db)` – next eligible block, used by the "Next Block" UI.
+- `get_block_statistics(db)` – dashboard aggregates.
 
-### The Problem
-
-You want blocks to be recurring (not tasks). A block should contain a fixed set of tasks, and when the block is completed, it should reset and move to the back of the queue.
-
-### The Solution
-
-The `complete_and_reset_block()` function implements this workflow:
-
-```python
-def complete_and_reset_block(db, block_id, move_to_end=True):
-    """
-    1. Mark all incomplete tasks as complete (records completion)
-    2. Immediately reset all tasks to incomplete (ready for next cycle)
-    3. Move block to end of queue (via block_number)
-    """
-```
-
-### Example Workflow
+### Usage pattern
 
 ```python
 from app.services import block_service
 
-# You have a block "Morning Routine" with tasks:
-# - Task 1: Meditation (20 min)
-# - Task 2: Exercise (30 min)
-# - Task 3: Breakfast (15 min)
-
-# User completes all tasks in the block
-result = block_service.complete_and_reset_block(db, block_id, move_to_end=True)
-
-# Result:
+result = block_service.complete_and_reset_block(db, block.id, move_to_end=True)
 # {
-#   "tasks_completed": 3,      # 3 tasks were marked complete
-#   "tasks_reset": 3,           # 3 tasks reset to incomplete
-#   "new_block_number": 10,     # Block moved to end (was #1, now #10)
+#   "tasks_completed": 5,
+#   "tasks_reset": 5,
+#   "new_block_number": 12,
 #   "moved_to_end": True
 # }
-
-# Now the block is ready to be done again!
-# It's at the back of the queue, so other blocks come first.
 ```
 
-### Block Ordering
+## Data Model Alignment
 
-Blocks are ordered by `block_number`:
-- Lower numbers = earlier in queue
-- Higher numbers = later in queue
-- When a block is completed, it gets the highest number + 1
+No additional tables were required to support recurrence:
 
-Example queue:
-```
-Block #1: Morning Routine (you're here)
-Block #2: Deep Work Session
-Block #3: Learning Block
-Block #4: Exercise Block
-
-[Complete Morning Routine]
-
-Block #2: Deep Work Session (you're here now)
-Block #3: Learning Block
-Block #4: Exercise Block
-Block #5: Morning Routine (moved to end)
-```
-
----
-
-## Cloning Blocks for True Recurrence
-
-If you want to create multiple instances of the same block (e.g., "Morning Routine" template), use `clone_block()`:
-
-```python
-# Clone a block
-source_block_id = "morning-routine-template-id"
-
-new_block = block_service.clone_block(
-    db,
-    source_block_id,
-    copy_tasks=True  # Copy all tasks from source block
-)
-
-# Now you have two separate blocks:
-# 1. Original "Morning Routine" block
-# 2. New "Morning Routine (Copy)" block
-```
-
----
-
-## Data Model Compatibility
-
-### No Model Changes Needed! ✅
-
-The existing data model supports recurring blocks without any changes:
-
-- **`Block.block_number`** - Used for queue ordering
-- **`Task.completed`** - Can be toggled between complete/incomplete
-- **`Task.completed_at`** - Records when task was completed
-- **Cascade delete** - When you delete a block, its tasks are deleted too
-
-### Current Schema
+- `Block.block_number` keeps queue order.
+- `Task.completed` and `Task.completed_at` capture state transitions.
+- Cascade deletes clean up associated tasks when removing a block.
 
 ```
-Category
-├── id (UUID)
-├── name
-└── color
-
-Block
-├── id (UUID)
-├── title
-├── description (optional, max 200 chars)
-├── block_number (for ordering)
-├── day_number (optional, 1-5)
-└── created_at
-
-Task
-├── id (UUID)
-├── block_id (FK)
-├── category_id (FK)
-├── title
-├── estimated_minutes
-├── actual_minutes
-├── completed (boolean)
-├── completed_at (timestamp)
-└── position (for ordering within block)
+Category ─┐
+          ├─< Block ─┐
+          │          └─< Task
 ```
-
----
-
-## Integration with API Layer
-
-When you build the API routes, use the services like this:
-
-```python
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from app.database import get_db
-from app.services import block_service
-from app.schemas.block import Block
-
-router = APIRouter()
-
-@router.post("/blocks/{block_id}/complete-and-reset")
-def complete_and_reset_block(
-    block_id: str,
-    move_to_end: bool = True,
-    db: Session = Depends(get_db)
-):
-    """Complete all tasks in a block and reset for recurrence"""
-    result = block_service.complete_and_reset_block(db, block_id, move_to_end)
-    
-    if not result:
-        raise HTTPException(status_code=404, detail="Block not found")
-    
-    return result
-
-@router.get("/blocks/next")
-def get_next_block(db: Session = Depends(get_db)):
-    """Get the next block in the queue"""
-    result = block_service.get_next_block(db)
-    
-    if not result:
-        return {"message": "No blocks available"}
-    
-    return result
-```
-
----
 
 ## Best Practices
 
-### 1. Always Use Services, Not Direct DB Access
+- **Always go through services.** Skip direct ORM usage in routes or background jobs.
+- **Handle `None` results.** Services return `None` for missing entities; raise a 404 at the API layer.
+- **Guard transactions.** Services commit by default, but complex workflows should still wrap calls in try/except and rollback on failure.
+- **Keep idempotency in mind.** Operations like `complete_and_reset_block` handle already-completed tasks gracefully.
 
-❌ **Bad:**
-```python
-@router.get("/categories")
-def get_categories(db: Session = Depends(get_db)):
-    return db.query(Category).all()  # Direct DB access
-```
+## Testing
 
-✅ **Good:**
-```python
-@router.get("/categories")
-def get_categories(db: Session = Depends(get_db)):
-    return category_service.get_all_categories(db)  # Use service
-```
-
-### 2. Handle None Returns
-
-Services return `None` when entities aren't found:
+Leverage fixtures that provide a session scoped to a transaction. Example:
 
 ```python
-category = category_service.get_category(db, category_id)
-if not category:
-    raise HTTPException(status_code=404, detail="Category not found")
-```
-
-### 3. Use Transactions
-
-Services handle commits internally, but for complex operations:
-
-```python
-try:
-    # Multiple service calls
-    task1 = task_service.create_task(db, task_data1)
-    task2 = task_service.create_task(db, task_data2)
-    # If one fails, both rollback
-except Exception as e:
-    db.rollback()
-    raise e
-```
-
----
-
-## Testing Services
-
-```python
-import pytest
-from app.services import block_service, task_service
-from app.schemas.block import BlockCreate
-from app.schemas.task import TaskCreate
-from datetime import datetime, timedelta
-
 def test_recurring_block(db_session):
-    # Create a block
-    block_data = BlockCreate(
-        title="Test Block",
-        description="Test description",
+    block = block_service.create_block(db_session, BlockCreate(
+        title="Night Shift",
         block_number=1,
         day_number=1
-    )
-    block = block_service.create_block(db_session, block_data)
-    
-    # Add tasks
-    task1 = task_service.create_task(db_session, TaskCreate(
-        block_id=block.id,
-        category_id="some-category-id",
-        title="Task 1",
-        estimated_minutes=30
     ))
-    
-    # Complete task
-    task_service.complete_task(db_session, task1.id)
-    
-    # Reset block
+
+    task = task_service.create_task(db_session, TaskCreate(
+        block_id=block.id,
+        category_id=category.id,
+        title="Warm up",
+        estimated_minutes=12
+    ))
+
+    task_service.complete_task(db_session, task.id)
     result = block_service.complete_and_reset_block(db_session, block.id)
-    
-    assert result["tasks_completed"] == 0  # Already complete
+
     assert result["tasks_reset"] == 1
-    assert result["moved_to_end"] == True
-    
-    # Verify task is now incomplete
-    refreshed_task = task_service.get_task(db_session, task1.id)
-    assert refreshed_task.completed == False
+    assert result["moved_to_end"] is True
+    assert task_service.get_task(db_session, task.id).completed is False
 ```
 
----
+## Maintenance Checklist
 
-## Summary
+- Add new business rules in services first, then expose them via routers.
+- Update docstrings and schemas alongside any signature changes.
+- Keep service functions small and composable—prefer helper methods when logic grows.
+- When adding long-running workflows, consider background tasks but keep the domain rules here.
 
-The Services Layer provides:
-
-✅ **Complete CRUD operations** for all entities  
-✅ **Recurring block support** without model changes  
-✅ **Queue management** with block ordering  
-✅ **Progress tracking** and statistics  
-✅ **Bulk operations** for efficiency  
-✅ **Clean separation** from API and database layers  
-
-The **recurring block functionality** is the key feature - blocks can repeat indefinitely by completing and resetting their tasks, then moving to the back of the queue.
-
----
-
-## Next Steps
-
-1. **Implement API Layer** - Create FastAPI routes that use these services
-2. **Add Authentication** - If needed for multi-user support
-3. **Build Frontend** - Create UI that calls the API endpoints
-4. **Add Tests** - Write comprehensive tests for all services
-5. **Deploy** - Set up Cloud Run with PostgreSQL
-
-The services are ready to use! 🚀
+The services layer is the contract between your API and the database. Keep it clean, and the rest of the stack remains predictable.

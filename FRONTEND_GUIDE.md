@@ -26,20 +26,21 @@ Database
 
 **Key Sections**:
 - **Header**: App title, quick stats, refresh button
-- **Left Sidebar**: 
-  - Statistics panel
-  - Quick Actions panel (+ Add Block, + Add Category)
-  - Categories list
-- **Main Content**: 
+- **Left Sidebar**:
+  - Quote of the Moment panel (editable daily intention)
+  - Quick Actions panel (+ Add Category, + Add Block, + Add Task)
+  - Categories list with counts
+- **Main Content**:
+  - Focus Tracker panel (ritual checklist)
   - Next Block section (priority display)
   - Active Blocks queue
-- **Right Sidebar**: 
+- **Right Sidebar**:
   - Block info panel
   - Tasks list with checkboxes
   - Progress bar and stats
   - Block action buttons
 - **Footer**: Status bar with clock
-- **Modals**: Add category form, Add block form
+- **Modals**: Category, block, task, and quote management
 - **Notifications**: Toast notification system
 
 **Layout Structure**:
@@ -51,9 +52,9 @@ Database
 │  LEFT    │   MAIN CONTENT       │  RIGHT SIDEBAR  │
 │ SIDEBAR  │                      │                  │
 │          │  - Next Block        │  - Block Info   │
-│ - Stats  │  - Block Queue       │  - Tasks List   │
-│ - Cats   │                      │  - Progress     │
-│ - Actions│                      │  - Actions      │
+│ - Quote  │  - Focus Tracker     │  - Tasks List   │
+│ - Actions│  - Block Queue       │  - Progress     │
+│ - Cats   │                      │  - Actions      │
 │          │                      │                  │
 ├──────────┴──────────────────────┴──────────────────┤
 │                     FOOTER                          │
@@ -162,14 +163,19 @@ API = {
 **State Management**:
 ```javascript
 AppState = {
-    nextBlock: null,        // Next block in queue
-    activeBlocks: [],       // All active blocks
-    selectedBlock: null,    // Currently selected block
-    tasks: [],             // Tasks for selected block
-    categories: [],        // All categories
-    statistics: {},        // Overall statistics
-    blockProgress: null,   // Progress for selected block
-    isLoading: false       // Loading state
+    nextBlock: null,         // Highest-priority block
+    activeBlocks: [],        // Blocks with incomplete tasks
+    selectedBlock: null,     // Currently selected block
+    tasks: [],               // Tasks for the selected block
+    categories: [],          // All categories with counts
+    blockProgress: null,     // Progress details for selected block
+    isLoading: false,        // Global loading indicator
+    modalMode: 'add',        // Category modal mode
+    editingCategory: null,   // Category being edited
+    blockModalMode: 'add',   // Block modal mode
+    editingBlock: null,      // Block being edited
+    taskModalMode: 'add',    // Task modal mode
+    editingTask: null        // Task being edited
 }
 ```
 
@@ -183,18 +189,18 @@ AppState = {
 **Data Loading**:
 - `loadNextBlock()` - Load next block in queue
 - `loadActiveBlocks()` - Load active blocks
-- `loadCategories()` - Load categories
-- `loadStatistics()` - Load overall stats
+- `loadCategories()` - Load categories and refresh dependent views
 - `selectBlock(id)` - Select and load block details
 
 **UI Rendering**:
+- `injectFocusModalStyles()` - Append focus tracker stylesheet once
+- `renderFocusModal()` - Insert focus tracker panel above next block
 - `renderNextBlock()` - Display next block prominently
 - `renderBlockQueue()` - Display blocks queue
 - `renderBlockInfo()` - Display block details
 - `renderTasks()` - Display tasks with checkboxes
 - `renderProgress()` - Display progress bar
 - `renderCategories()` - Display categories
-- `renderStatistics()` - Display statistics
 
 **Event Handlers**:
 - `handleBlockClick(id)` - Select block from queue
@@ -220,11 +226,12 @@ AppState = {
 
 1. User opens `http://localhost:8000/app`
 2. App loads and calls `init()`
-3. Loads next block from API
-4. Displays next block prominently
-5. Loads active blocks queue
-6. Auto-selects next block
-7. Loads and displays tasks for that block
+3. Focus tracker styles and panel render
+4. Loads next block from API
+5. Displays next block prominently
+6. Loads active blocks queue
+7. Auto-selects next block
+8. Loads and displays tasks for that block
 
 ### Flow 2: Completing a Task
 
@@ -236,7 +243,7 @@ AppState = {
 6. UI updates:
    - Task marked with strikethrough
    - Progress bar updates
-   - Stats update
+   - Header statistics refresh
 
 ### Flow 3: Completing a Block (Recurring)
 
@@ -285,6 +292,7 @@ AppState = {
 - Progress bars: Gradient green fill
 - Notifications: Slide-in from right
 - Task completion: Smooth opacity transition
+- Focus tracker: Accent checkboxes with labels stacked beneath
 
 **Custom Scrollbars**:
 - Dark track with green thumb
@@ -389,20 +397,21 @@ All API calls include:
    - Monospace fonts
    - Green/cyan/yellow colors
    - Terminal-style layout
-
-2. **Aesthetically Pleasing** ✓
+2. **Focus Tracker Panel** ✓
+   - Five customizable ritual checkboxes
+   - Inline labels for quick scanning
+   - Divider separating warm-up vs cool-down actions
+3. **Aesthetically Pleasing** ✓
    - Card-based layout
    - Subtle glow effects
    - Smooth animations
    - Color-coded information
-
-3. **Smooth Responsiveness** ✓
+4. **Smooth Responsiveness** ✓
    - No page reloads (SPA)
    - Instant UI updates
    - 0.3s transitions
    - Optimistic updates
-
-4. **Simple & Easy to Understand** ✓
+5. **Simple & Easy to Understand** ✓
    - Clear visual hierarchy
    - Obvious next actions
    - Minimal clutter
