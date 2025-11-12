@@ -82,7 +82,7 @@ Use the interactive docs or `init_db.py` to seed categories, blocks, tasks, and 
 - Toast notifications and footer clock
 - Bulk and per-task completion API endpoints
 - Block cloning, reordering, and statistics
-- Focus tracker panel with customizable checklists
+- Focus tracker panel with persistent checklists and celebratory completion flair
 
 ## Deployment
 

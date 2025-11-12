@@ -16,6 +16,7 @@ const AppState = {
     nextBlock: null,           // The next block in queue (most important)
     activeBlocks: [],          // All active blocks (with incomplete tasks)
     selectedBlock: null,       // Currently selected block for viewing
+    blockToComplete: null,     // Block pending completion confirmation
     tasks: [],                 // Tasks for the selected block
     categories: [],            // All categories
     blockProgress: null,       // Progress for selected block
@@ -37,6 +38,8 @@ const FOCUS_MODAL_OPTIONS = [
     { id: 'focus-checkbox-4', label: 'Quick Amp Up' },
     { id: 'focus-checkbox-5', label: '12-min Cool Down' }
 ];
+const FOCUS_MODAL_STORAGE_KEY = 'focusModalState';
+const FOCUS_CONFETTI_CONTAINER_ID = 'focus-confetti-container';
 
 // =============================================================================
 // Initialization
@@ -79,9 +82,9 @@ function setupEventListeners() {
     });
     
     // Complete block button
-    document.getElementById('btn-complete-block').addEventListener('click', async () => {
+    document.getElementById('btn-complete-block').addEventListener('click', () => {
         if (AppState.selectedBlock) {
-            await handleCompleteBlock(AppState.selectedBlock.id);
+            showCompleteBlockModal(AppState.selectedBlock.id, AppState.selectedBlock.title);
         }
     });
     
@@ -164,6 +167,25 @@ function setupEventListeners() {
         if (e.target.id === 'delete-block-modal-overlay') {
             hideDeleteBlockModal();
         }
+    });
+    
+    // Complete block modal
+    document.getElementById('complete-block-modal-close').addEventListener('click', hideCompleteBlockModal);
+    document.getElementById('btn-cancel-complete-block').addEventListener('click', hideCompleteBlockModal);
+    document.getElementById('complete-block-modal-overlay').addEventListener('click', (e) => {
+        if (e.target.id === 'complete-block-modal-overlay') {
+            hideCompleteBlockModal();
+        }
+    });
+    document.getElementById('btn-confirm-complete-block').addEventListener('click', async () => {
+        if (!AppState.blockToComplete) {
+            return;
+        }
+        
+        const blockId = AppState.blockToComplete;
+        AppState.blockToComplete = null;
+        hideCompleteBlockModal();
+        await handleCompleteBlock(blockId);
     });
     
     // Delete task modal
@@ -474,6 +496,44 @@ function injectFocusModalStyles() {
         #${FOCUS_MODAL_ID} .panel-content {
             padding: 14px 24px;
         }
+        
+        .focus-confetti-container {
+            position: relative;
+            width: 100%;
+            height: 0;
+            pointer-events: none;
+        }
+        
+        .focus-confetti-container.active {
+            height: 120px;
+        }
+        
+        .confetti-particle {
+            position: absolute;
+            top: 0;
+            left: var(--confetti-left, 50%);
+            width: 6px;
+            height: 12px;
+            background: hsl(var(--confetti-hue, 140), 70%, 55%);
+            border-radius: 1px;
+            opacity: 0;
+            transform: rotate(var(--confetti-rotation, 0deg));
+            animation: focus-confetti-fall var(--confetti-duration, 1.6s) ease-out var(--confetti-delay, 0s) forwards;
+        }
+        
+        @keyframes focus-confetti-fall {
+            0% {
+                transform: translate3d(-50%, -20px, 0) rotate(var(--confetti-rotation, 0deg));
+                opacity: 1;
+            }
+            25% {
+                opacity: 1;
+            }
+            100% {
+                transform: translate3d(-50%, 100px, 0) rotate(calc(var(--confetti-rotation, 0deg) + 200deg));
+                opacity: 0;
+            }
+        }
 
         .focus-modal-content {
             display: flex;
@@ -560,8 +620,32 @@ function renderFocusModal() {
             <div class="focus-modal-content" role="group" aria-label="Focus tracker checkboxes">
                 ${optionsHtml}
             </div>
+            <div id="${FOCUS_CONFETTI_CONTAINER_ID}" class="focus-confetti-container" aria-hidden="true"></div>
         </div>
     `;
+
+    // Restore saved checkbox states
+    const savedFocusState = loadFocusModalState();
+    FOCUS_MODAL_OPTIONS.forEach((option) => {
+        const checkbox = modalSection.querySelector(`#${option.id}`);
+        if (checkbox) {
+            checkbox.checked = Boolean(savedFocusState[option.id]);
+        }
+    });
+
+    // Persist changes on toggle
+    modalSection.addEventListener('change', (event) => {
+        if (!event.target.classList.contains('focus-modal-checkbox')) {
+            return;
+        }
+        const state = loadFocusModalState();
+        state[event.target.id] = event.target.checked;
+        saveFocusModalState(state);
+        handleFocusCelebration(modalSection);
+    });
+
+    // Initial celebration check
+    handleFocusCelebration(modalSection, { skipCooldown: true });
 
     mainContent.insertBefore(modalSection, nextBlockPanel);
 }
@@ -845,10 +929,6 @@ async function handleTaskToggle(taskId, checked) {
  * @param {string} blockId - Block UUID
  */
 async function handleCompleteBlock(blockId) {
-    if (!confirm('Complete this block? All tasks will be marked complete, then reset for the next cycle. The block will move to the end of the queue.')) {
-        return;
-    }
-    
     try {
         updateStatus('Completing block...');
         
@@ -1314,6 +1394,92 @@ function hideDeleteBlockModal() {
     deleteModalOverlay.classList.add('hidden');
 }
 
+/**
+ * Show the complete block confirmation modal
+ * @param {string} blockId - The ID of the block to complete
+ * @param {string} blockTitle - The title of the block for the confirmation message
+ */
+function showCompleteBlockModal(blockId, blockTitle) {
+    AppState.blockToComplete = blockId;
+    
+    const completeModalOverlay = document.getElementById('complete-block-modal-overlay');
+    const completeBlockName = document.getElementById('complete-block-name');
+    
+    completeBlockName.textContent = blockTitle || 'this block';
+    completeModalOverlay.classList.remove('hidden');
+}
+
+/**
+ * Hide the complete block confirmation modal
+ */
+function hideCompleteBlockModal() {
+    const completeModalOverlay = document.getElementById('complete-block-modal-overlay');
+    completeModalOverlay.classList.add('hidden');
+    AppState.blockToComplete = null;
+}
+
+/**
+ * Trigger a celebratory animation when all focus checkboxes are checked
+ * @param {HTMLElement} modalSection - The focus modal section element
+ * @param {Object} options - Additional options
+ * @param {boolean} options.skipCooldown - If true, bypass the cooldown check
+ */
+function handleFocusCelebration(modalSection, { skipCooldown = false } = {}) {
+    const checkboxes = [...modalSection.querySelectorAll('.focus-modal-checkbox')];
+    const totalChecked = checkboxes.filter((checkbox) => checkbox.checked).length;
+    const confettiContainer = modalSection.querySelector(`#${FOCUS_CONFETTI_CONTAINER_ID}`);
+    
+    if (totalChecked !== FOCUS_MODAL_OPTIONS.length || !confettiContainer) {
+        return;
+    }
+    
+    const now = Date.now();
+    const lastCelebrated = Number(localStorage.getItem('focusModalCelebratedAt') || 0);
+    const oneMinute = 60 * 1000;
+    if (!skipCooldown && now - lastCelebrated < oneMinute) {
+        return;
+    }
+    
+    localStorage.setItem('focusModalCelebratedAt', String(now));
+    
+    spawnConfetti(confettiContainer, {
+        particleCount: 24,
+        duration: 1200
+    });
+}
+
+/**
+ * Spawn confetti particles inside a container
+ * @param {HTMLElement} container - Container element to host confetti
+ * @param {Object} options - Confetti options
+ * @param {number} options.particleCount - Number of particles to create
+ * @param {number} options.duration - Duration of the animation in ms
+ */
+function spawnConfetti(container, { particleCount = 20, duration = 1500 } = {}) {
+    container.classList.add('active');
+    const particles = [];
+    
+    for (let i = 0; i < particleCount; i += 1) {
+        const particle = document.createElement('span');
+        particle.className = 'confetti-particle';
+        
+        // Randomize initial position and properties
+        particle.style.setProperty('--confetti-left', `${Math.random() * 100}%`);
+        particle.style.setProperty('--confetti-rotation', `${Math.random() * 360}deg`);
+        particle.style.setProperty('--confetti-delay', `${Math.random() * 0.3}s`);
+        particle.style.setProperty('--confetti-duration', `${duration / 1000 + Math.random() * 0.5}s`);
+        particle.style.setProperty('--confetti-hue', `${Math.floor(Math.random() * 360)}`);
+        
+        particles.push(particle);
+        container.appendChild(particle);
+    }
+    
+    setTimeout(() => {
+        particles.forEach((particle) => particle.remove());
+        container.classList.remove('active');
+    }, duration + 500);
+}
+
 
 /**
  * Show add category modal
@@ -1612,6 +1778,36 @@ function updateClock() {
     const now = new Date();
     const timeString = now.toLocaleTimeString('en-US', { hour12: false });
     document.getElementById('footer-time').textContent = timeString;
+}
+
+/**
+ * Load the persisted focus modal checkbox state
+ * @returns {Object<string, boolean>} Focus checkbox state map
+ */
+function loadFocusModalState() {
+    try {
+        const raw = localStorage.getItem(FOCUS_MODAL_STORAGE_KEY);
+        if (!raw) {
+            return {};
+        }
+        const parsed = JSON.parse(raw);
+        return typeof parsed === 'object' && parsed !== null ? parsed : {};
+    } catch (error) {
+        console.warn('Unable to read focus modal state from storage:', error);
+        return {};
+    }
+}
+
+/**
+ * Persist the focus modal checkbox state
+ * @param {Object<string, boolean>} state - Focus checkbox state map
+ */
+function saveFocusModalState(state) {
+    try {
+        localStorage.setItem(FOCUS_MODAL_STORAGE_KEY, JSON.stringify(state));
+    } catch (error) {
+        console.warn('Unable to save focus modal state to storage:', error);
+    }
 }
 
 // =============================================================================

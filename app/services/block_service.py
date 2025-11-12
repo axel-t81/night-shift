@@ -236,15 +236,9 @@ def move_block_to_end(db: Session, block_id: str) -> Optional[Block]:
     if not block:
         return None
     
-    # Find the highest block_number and cycle from 1-15
-    max_block_number = db.query(func.max(Block.block_number)).scalar()
-    
-    # Set this block's number to cycle (1-15)
-    if max_block_number is not None:
-        new_block_number = (max_block_number % 15) + 1
-    else:
-        new_block_number = 1
-    block.block_number = new_block_number
+    # Find the highest block_number and assign the next value to keep this block at the end
+    max_block_number = db.query(func.max(Block.block_number)).scalar() or 0
+    block.block_number = max_block_number + 1
     
     db.commit()
     db.refresh(block)
@@ -435,8 +429,8 @@ def get_active_blocks(db: Session, day_number: Optional[int] = None) -> List[Blo
     if day_number:
         query = query.filter(Block.day_number == day_number)
     
-    # Order by day number, then block number
-    return query.order_by(Block.day_number, Block.block_number).all()
+    # Order purely by queue position
+    return query.order_by(Block.block_number).all()
 
 
 def get_next_block(db: Session) -> Optional[Dict]:
@@ -467,7 +461,7 @@ def get_next_block(db: Session) -> Optional[Dict]:
     # Find the block with the lowest block_number from the combined set
     block = db.query(Block).filter(
         Block.id.in_(db.query(block_ids_subquery))
-    ).order_by(Block.day_number, Block.block_number).first()
+    ).order_by(Block.block_number).first()
     
     if not block:
         return None

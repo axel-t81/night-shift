@@ -33,7 +33,11 @@ class BlockBase(BaseModel):
     title: str = Field(..., min_length=1, max_length=200, description="Block title")
     description: Optional[str] = Field(None, max_length=200, description="Block description")
     day_number: Optional[int] = Field(None, ge=1, le=5, description="Day of cycle (1-5)")
-    block_number: Optional[int] = Field(None, ge=1, le=3, description="Order within the day (1, 2, 3)")
+    block_number: Optional[int] = Field(
+        None,
+        ge=1,
+        description="Queue position (1 = front of the line)"
+    )
     category_id: Optional[str] = Field(None, description="ID of the category/project for this block")
 
 
@@ -54,7 +58,11 @@ class BlockCreate(BlockBase):
     }
     """
     day_number: int = Field(..., ge=1, le=5, description="Day of cycle (1-5)")
-    block_number: int = Field(..., ge=1, le=3, description="Order within the day (1, 2, 3)")
+    block_number: int = Field(
+        ...,
+        ge=1,
+        description="Queue position (1 = front of the line)"
+    )
 
 
 # Schema for updating an existing block (PUT/PATCH request)
@@ -73,7 +81,7 @@ class BlockUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=200)
     description: Optional[str] = Field(None, max_length=200)
     day_number: Optional[int] = Field(None, ge=1, le=5)
-    block_number: Optional[int] = Field(None, ge=1, le=3)
+    block_number: Optional[int] = Field(None, ge=1)
 
 
 # Schema for block as stored in database and returned by API (GET response)

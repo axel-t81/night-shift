@@ -120,6 +120,7 @@ result = block_service.complete_and_reset_block(db, block.id, move_to_end=True)
 No additional tables were required to support recurrence:
 
 - `Block.block_number` keeps queue order.
+- Queue queries sort exclusively by `block_number`; `day_number` is decorative metadata for display.
 - `Task.completed` and `Task.completed_at` capture state transitions.
 - Cascade deletes clean up associated tasks when removing a block.
 

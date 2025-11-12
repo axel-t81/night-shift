@@ -249,8 +249,8 @@ AppState = {
 
 1. User completes all tasks in block
 2. User clicks "Complete & Reset Block"
-3. Confirmation dialog appears
-4. `handleCompleteBlock()` called
+3. Themed confirmation modal (`showCompleteBlockModal`) appears
+4. User confirms; `handleCompleteBlock()` executes
 5. API call to `/blocks/{id}/complete-and-reset`
 6. Backend:
    - Marks all tasks complete
@@ -293,6 +293,7 @@ AppState = {
 - Notifications: Slide-in from right
 - Task completion: Smooth opacity transition
 - Focus tracker: Accent checkboxes with labels stacked beneath
+- Focus tracker selections persist in `localStorage` and trigger a celebratory confetti animation when all items are checked
 
 **Custom Scrollbars**:
 - Dark track with green thumb
